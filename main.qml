@@ -6,7 +6,13 @@ Window {
 	width: 640 * 1.7
 	height: 480 * 1.3
 
+	color: '#111'
+
 	title: qsTr("Picture of the Day")
+
+	Galery {
+		anchors.fill: parent
+	}
 
 	Component.onCompleted: {
 			setX(Screen.width / 2 - width / 2);
