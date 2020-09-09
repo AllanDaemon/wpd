@@ -1,5 +1,6 @@
 import QtQuick 2.0
 import QtQuick.XmlListModel 2.0
+import QtQuick.Controls 2.13
 
 
 GridView {
@@ -77,7 +78,6 @@ GridView {
 					}
 				}
 
-
 				Rectangle {
 					color: "#88F"
 					width: parent.width
@@ -91,6 +91,19 @@ GridView {
 					}
 				}
 
+			}
+
+
+			MouseArea {
+				id: card_area
+				anchors.fill: parent
+				hoverEnabled: true
+			}
+
+			ToolTip {
+				visible: card_area.containsMouse
+				text: ititle
+				delay: 420
 			}
 		}
 	}
