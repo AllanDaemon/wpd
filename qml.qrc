@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>main.qml</file>
         <file>Galery.qml</file>
+        <file>TopMenu.qml</file>
     </qresource>
 </RCC>
