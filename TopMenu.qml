@@ -7,13 +7,11 @@ ToolBar {
 	height: refresh_button.height
 
 	RowLayout {
-		anchors.leftMargin: 20
-		anchors.rightMargin: 20
 		anchors.fill: parent
-		spacing: 5
 
 		Label {
 			text: "Source:"
+			leftPadding: 10
 		}
 
 		ComboBox {
@@ -26,13 +24,9 @@ ToolBar {
 		}
 
 		ToolButton {
-			id: refresh_button
 			text: qsTr("Reload")
-
-			icon.height: 32
-			icon.width: 32
-			icon.source: "qrc:/assets/view-refresh.svg"
 			display: AbstractButton.IconOnly
+			icon.source: "qrc:/assets/view-refresh.svg"
 
 			onClicked: console.info("RELOADED btn")
 		}
@@ -40,7 +34,10 @@ ToolBar {
 		Item { Layout.fillWidth: true }
 
 		ToolButton {
-			text: qsTr("⋮ Settings")
+			text: qsTr("Settings")
+			display: AbstractButton.IconOnly
+			icon.source: "qrc:/assets/settings-configure.svg"
+
 			//onClicked: menu.open()
 		}
 	}
