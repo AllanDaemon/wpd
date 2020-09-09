@@ -4,10 +4,13 @@ import QtQuick.Layouts 1.3
 
 ToolBar {
 	id: toolbar
-	height: 32
+	height: refresh_button.height
 
-	 RowLayout {
-		 anchors.fill: parent
+	RowLayout {
+		anchors.leftMargin: 20
+		anchors.rightMargin: 20
+		anchors.fill: parent
+		spacing: 5
 
 		Label {
 			text: "Source:"
@@ -23,12 +26,21 @@ ToolBar {
 		}
 
 		ToolButton {
+			id: refresh_button
 			text: qsTr("Reload")
-			onClicked: console.log("RELOADED btn")
+
+			icon.height: 32
+			icon.width: 32
+			icon.source: "qrc:/assets/view-refresh.svg"
+			display: AbstractButton.IconOnly
+
+			onClicked: console.info("RELOADED btn")
 		}
 
+		Item { Layout.fillWidth: true }
+
 		ToolButton {
-			text: qsTr("⋮")
+			text: qsTr("⋮ Settings")
 			//onClicked: menu.open()
 		}
 	}

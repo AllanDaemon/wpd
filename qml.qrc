@@ -3,5 +3,6 @@
         <file>main.qml</file>
         <file>Galery.qml</file>
         <file>TopMenu.qml</file>
+        <file>assets/view-refresh.svg</file>
     </qresource>
 </RCC>
