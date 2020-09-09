@@ -17,10 +17,10 @@ ApplicationWindow {
 
 	//color: '#111'
 
-	title: qsTr("Picture of the Day")
+	title: qsTr("Wallpper Picture of the Day")
 
 	header: TopMenu {
-		height: 40
+//		height: 40
 	}
 
 	Galery {
