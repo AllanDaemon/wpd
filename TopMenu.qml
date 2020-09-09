@@ -38,7 +38,11 @@ ToolBar {
 			display: AbstractButton.IconOnly
 			icon.source: "qrc:/assets/settings-configure.svg"
 
-			//onClicked: menu.open()
+			onClicked: {
+				var compoment = Qt.createComponent('SettingsUI.qml')
+				var win = compoment.createObject(root)
+				win.show()
+			}
 		}
 	}
 }
