@@ -28,7 +28,7 @@ class ProviderBaseMeta(type, UserList):
 
 	@property
 	def DATA_DIR(cls):
-		return CACHE_DIR / cls.SHORT_NAME
+		return CACHE_DIR / cls.SHORT_NAME	# type: ignore
 
 	@property
 	def IMG_DIR(cls):
@@ -36,14 +36,15 @@ class ProviderBaseMeta(type, UserList):
 
 	@property
 	def DATA_FILE(cls):
-		return cls.DATA_DIR / f'{cls.SHORT_NAME}.yaml'
+		return cls.DATA_DIR / f'{cls.SHORT_NAME}.yaml'	# type: ignore
 
 
 class ProviderBase(metaclass=ProviderBaseMeta):
 	SHORT_NAME = "base"
 
+	# should be copied in subclasses otherwise pylint can't see it.
 	DATA_DIR: ClassVar[Path]
 	IMG_DIR: ClassVar[Path]
 	DATA_FILE: ClassVar[Path]
 
-
+	data: ClassVar[list[ImageBase]]

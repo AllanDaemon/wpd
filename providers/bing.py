@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
-from typing import Optional
+from typing import ClassVar
 from pathlib import Path
 import yaml
 import re
@@ -28,7 +28,6 @@ class BingImage(ImageBase):
 	id_num: int
 	resolution: tuple[int, int]
 	_hash: str
-	# local: Optional[Path] = None
 
 
 
@@ -44,11 +43,11 @@ class BingProvider(ProviderBase):
 		'mkt': 'en-US'
 	}
 
-	# DATA_DIR = CACHE_DIR / SHORT_NAME
-	# IMG_DIR = DATA_DIR / 'imgs'
-	# DATA_FILE = DATA_DIR / f'{SHORT_NAME}.yaml'
+	DATA_DIR: ClassVar[Path]
+	IMG_DIR: ClassVar[Path]
+	DATA_FILE: ClassVar[Path]
 
-	data: list[BingImage]
+	data: ClassVar[list[ImageBase]]
 
 	@classmethod
 	def download(cls):
