@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
+from dataclasses import dataclass, field
 from pathlib import Path
 from collections import UserList
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 
 CACHE_DIR = Path('cache')
 
 log = print
 
+@dataclass
 class ImageBase:
-	...
+	date: str
+	url: str
+	f_name: str
+
+	# local FS data
+	local: Optional[Path] = field(init=False)
+	len: Optional[int] = field(init=False)
+	hash: Optional[str] = field(init=False)
+
 
 
 class ProviderBaseMeta(type, UserList):

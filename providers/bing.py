@@ -17,18 +17,18 @@ from .base import ImageBase, ProviderBase, CACHE_DIR, log
 
 @dataclass
 class BingImage(ImageBase):
-	date: str
+	# date: str
 	title: str
 	about: str
-	url: str
+	# url: str
 	url_path: str
-	f_name: str
+	# f_name: str
 	extension: str
 	id_str: str
 	id_num: int
 	resolution: tuple[int, int]
 	_hash: str
-	local: Optional[Path] = None
+	# local: Optional[Path] = None
 
 
 
