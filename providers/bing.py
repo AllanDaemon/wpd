@@ -10,6 +10,7 @@ from collections import UserList
 from pathlib import Path
 import yaml
 import re
+import os
 
 import requests
 
@@ -42,16 +43,17 @@ def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
 	query = urlparse(url).query
 	_id = parse_qs(query)['id'][0]
 	m = _ID_PATTERN.match(_id)
-	assert m
-	groups = m.groups()
-	assert len(groups) == 5
-	id_str, _id_n, _r_w, _r_h, ext = groups
+	assert m and len(m.groups()) == 5
+	id_str, _id_n, _r_w, _r_h, ext = m.groups()
 	id_n = int(_id_n)
 	r_w = int(_r_w)
 	r_h = int(_r_h)
-	assert isinstance(id_str, str)
-	assert isinstance(id_n, int)
 	return _id, id_str, id_n, ext, (r_w, r_h)
+
+def set_file_date(f: Path, date: str):
+	a_time = f.stat().st_mtime
+	m_time = datetime.strptime(date, '%Y%m%d').timestamp()
+	os.utime(f, (a_time, m_time))
 
 
 class BingProvider(ProviderBase, UserList):
@@ -127,6 +129,7 @@ class BingProvider(ProviderBase, UserList):
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
 			img.local = f_path
+			set_file_date(f_path, img.date)
 		
 		if auto_dump:
 			cls.dump()
