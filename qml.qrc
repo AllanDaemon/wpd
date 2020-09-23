@@ -6,5 +6,7 @@
         <file>assets/view-refresh.svg</file>
         <file>assets/settings-configure.svg</file>
         <file>SettingsUI.qml</file>
+        <file>Style.qml</file>
+        <file>qmldir</file>
     </qresource>
 </RCC>
