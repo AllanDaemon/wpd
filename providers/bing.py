@@ -6,9 +6,7 @@ from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 from typing import ClassVar
 from pathlib import Path
-import yaml
 import re
-import os
 
 import requests
 
@@ -18,11 +16,11 @@ from .base import ImageBase, ProviderBase, CACHE_DIR, log
 @dataclass
 class BingImage(ImageBase):
 	# date: str
+	# f_name: str
+	# url: str
 	title: str
 	about: str
-	# url: str
 	url_path: str
-	# f_name: str
 	extension: str
 	id_str: str
 	id_num: int
@@ -49,10 +47,6 @@ class BingProvider(ProviderBase):
 
 	data: ClassVar[list[ImageBase]]
 
-	@classmethod
-	def download(cls):
-		cls.data = cls.download_info()
-		cls.dump()
 
 	@classmethod
 	def download_info(cls, save_raw=True):
@@ -108,21 +102,10 @@ class BingProvider(ProviderBase):
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
 			img.local = f_path.relative_to(CACHE_DIR)
-			set_file_date(f_path, img.date)
+			cls.set_file_date(f_path, img.date)
 		
 		if auto_dump:
 			cls.dump()
-
-
-	@classmethod
-	def dump(cls):
-		log(f"{cls.__name__}: Dumping data (file={cls.DATA_FILE})")
-		yaml.dump(cls.data, cls.DATA_FILE.open('w'))
-
-	@classmethod
-	def load(cls):
-		log(f"{cls.__name__}: Loading data (file={cls.DATA_FILE})")
-		cls.data = yaml.unsafe_load(cls.DATA_FILE.open())
 
 
 
@@ -138,11 +121,6 @@ def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
 	r_w = int(_r_w)
 	r_h = int(_r_h)
 	return _id, id_str, id_n, ext, (r_w, r_h)
-
-def set_file_date(f: Path, date: str):
-	a_time = f.stat().st_mtime
-	m_time = datetime.strptime(date, '%Y%m%d').timestamp()
-	os.utime(f, (a_time, m_time))
 
 
 
