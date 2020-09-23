@@ -3,8 +3,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
+from os import F_OK
+from typing import Optional
 from urllib.parse import urlparse, parse_qs
 from collections import UserList
+from pathlib import Path
 import yaml
 import re
 
@@ -30,6 +33,7 @@ class BingImage(ImageBase):
 	id_num: int
 	resolution: tuple[int, int]
 	_hash: str
+	local: Optional[Path] = None
 
 
 _ID_PATTERN = re.compile(r'OHR\.([^_]+)_EN-US(\d*)_(\d+)x(\d+).(\w+)', re.I | re.U)
@@ -61,6 +65,8 @@ class BingProvider(ProviderBase, UserList):
 	}
 
 	DATA_FILE = BING_CACHE_DATA / f'bing.yaml'
+
+	data: list[BingImage]
 
 	@classmethod
 	def download(cls):
@@ -101,9 +107,30 @@ class BingProvider(ProviderBase, UserList):
 		)
 
 	@classmethod
-	def download_images(cls):
+	def download_images(cls, overwrite: bool = False, auto_dump: bool = True):
 		log(f"{cls.__name__}: Downloading images")
-		...
+		for img in cls.data:
+			f_path = BING_CACHE_IMG / img.f_name
+			log(f'{cls.__name__}:\tDownloading img: "{img.url}"')
+
+			if not overwrite:
+				if img.local:
+					log(f'\t\tSKIPPED (saved path) {f_path}')
+					continue
+				elif f_path.is_file():
+					log(f'\t\tSKIPPED (exists on FS) {f_path}')
+					img.local = f_path
+					continue
+
+			res = requests.get(img.url)
+			assert res.status_code == 200
+			log(f'\t\t{len(res.content)}bytes -> {f_path}')
+			f_path.write_bytes(res.content)
+			img.local = f_path
+		
+		if auto_dump:
+			cls.dump()
+
 
 	@classmethod
 	def dump(cls):
@@ -118,4 +145,4 @@ class BingProvider(ProviderBase, UserList):
 
 
 p = BingProvider
-# p.load()
+p.load()
