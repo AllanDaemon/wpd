@@ -32,20 +32,20 @@ class BingImage(ImageBase):
 class BingProvider(ProviderBase):
 	SHORT_NAME = 'bing'
 
-	BASE_IMG_URL = "http://bing.com"
+	# For pylint sakes
+	DATA_DIR: ClassVar[Path]
+	IMG_DIR: ClassVar[Path]
+	DATA_FILE: ClassVar[Path]
+	data: ClassVar[list[ImageBase]]
+
 	BASE_URL = "http://www.bing.com/HPImageArchive.aspx"
+	BASE_IMG_URL = "http://bing.com"
 	BASE_PARAMS = {
 		'format': 'js',
 		'idx': 0,
 		'n': 100,
 		'mkt': 'en-US'
 	}
-
-	DATA_DIR: ClassVar[Path]
-	IMG_DIR: ClassVar[Path]
-	DATA_FILE: ClassVar[Path]
-
-	data: ClassVar[list[ImageBase]]
 
 
 	@classmethod
