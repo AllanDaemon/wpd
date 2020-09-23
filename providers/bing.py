@@ -12,11 +12,7 @@ import os
 
 import requests
 
-from base import ImageBase, ProviderBase, CACHE_DIR, log
-
-
-BING_CACHE_DATA = CACHE_DIR / 'bing'
-BING_CACHE_IMG = BING_CACHE_DATA / 'imgs'
+from .base import ImageBase, ProviderBase, CACHE_DIR, log
 
 
 @dataclass
@@ -37,6 +33,8 @@ class BingImage(ImageBase):
 
 
 class BingProvider(ProviderBase):
+	SHORT_NAME = 'bing'
+
 	BASE_IMG_URL = "http://bing.com"
 	BASE_URL = "http://www.bing.com/HPImageArchive.aspx"
 	BASE_PARAMS = {
@@ -46,7 +44,9 @@ class BingProvider(ProviderBase):
 		'mkt': 'en-US'
 	}
 
-	DATA_FILE = BING_CACHE_DATA / f'bing.yaml'
+	# DATA_DIR = CACHE_DIR / SHORT_NAME
+	# IMG_DIR = DATA_DIR / 'imgs'
+	# DATA_FILE = DATA_DIR / f'{SHORT_NAME}.yaml'
 
 	data: list[BingImage]
 
@@ -63,7 +63,7 @@ class BingProvider(ProviderBase):
 		assert res.status_code == 200
 		if save_raw:
 			now = datetime.now().strftime("%Y%m%d_%H%M%S")
-			f_path = BING_CACHE_DATA / 'raw' / f'bing_{now}.json'
+			f_path = cls.DATA_DIR / 'raw' / f'bing_{now}.json'
 			log(f"{cls.__name__}: \tSaving info (file={f_path})")
 			f_path.write_bytes(res.content)
 
@@ -92,7 +92,7 @@ class BingProvider(ProviderBase):
 	def download_images(cls, overwrite: bool = False, auto_dump: bool = True):
 		log(f"{cls.__name__}: Downloading images")
 		for img in cls.data:
-			f_path = BING_CACHE_IMG / img.f_name
+			f_path = cls.IMG_DIR / img.f_name
 			log(f'{cls.__name__}:\tDownloading img: "{img.url}"')
 
 			if not overwrite:
@@ -101,14 +101,14 @@ class BingProvider(ProviderBase):
 					continue
 				elif f_path.is_file():
 					log(f'\t\tSKIPPED (exists on FS) {f_path}')
-					img.local = f_path
+					img.local = f_path.relative_to(CACHE_DIR)
 					continue
 
 			res = requests.get(img.url)
 			assert res.status_code == 200
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
-			img.local = f_path
+			img.local = f_path.relative_to(CACHE_DIR)
 			set_file_date(f_path, img.date)
 		
 		if auto_dump:
@@ -148,4 +148,4 @@ def set_file_date(f: Path, date: str):
 
 
 p = BingProvider
-p.load()
+# p.load()
