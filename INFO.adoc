@@ -7,3 +7,22 @@ https://stackoverflow.com/questions/10639914/is-there-a-way-to-get-bings-photo-o
 
 http http://www.bing.com/HPImageArchive.aspx format==js idx==0 n==100 mkt==en-US -do bing.json
 
+=== Wikicommons
+
+https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day
+https://magnus-toolserver.toolforge.org/commonsapi.php
+
+https://commons.wikimedia.org/w/api.php
+https://commons.wikimedia.org/w/api.php?action=help&modules=parse
+
+https://github.com/KDE/kdeplasma-addons/blob/62c106fbe1ded4eb2c843073817be08a7bd303d8/dataengines/potd/wcpotdprovider.cpp#L37
+
+
+URL=https://commons.wikimedia.org/w/api.php
+http get $URL action==parse text=={{Potd}} contentmodel==wikitext prop==images format==json
+
+=== NASA
+
+https://apod.nasa.gov/apod/astropix.html
+https://apod.nasa.gov/apod/archivepix.html
+https://apod.nasa.gov/apod.rss
