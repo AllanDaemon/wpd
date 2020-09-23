@@ -1,0 +1,9 @@
+
+== Providers
+
+=== Bing
+
+https://stackoverflow.com/questions/10639914/is-there-a-way-to-get-bings-photo-of-the-day
+
+http http://www.bing.com/HPImageArchive.aspx format==js idx==0 n==100 mkt==en-US -do bing.json
+
