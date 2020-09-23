@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from pathlib import Path
+from collections import UserList
 
 
 CACHE_DIR = Path('../cache')
@@ -12,6 +13,9 @@ class ImageBase:
 	...
 
 
-class ProviderBase:
+class ProviderBaseMeta(type, UserList): ...
+
+
+class ProviderBase(metaclass=ProviderBaseMeta):
 	...
 

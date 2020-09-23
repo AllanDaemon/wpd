@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime
-from os import F_OK
-from typing import Optional
 from urllib.parse import urlparse, parse_qs
-from collections import UserList
+from datetime import datetime
+from typing import Optional
 from pathlib import Path
 import yaml
 import re
@@ -56,7 +54,7 @@ def set_file_date(f: Path, date: str):
 	os.utime(f, (a_time, m_time))
 
 
-class BingProvider(ProviderBase, UserList):
+class BingProvider(ProviderBase):
 	BASE_IMG_URL = "http://bing.com"
 	BASE_URL = "http://www.bing.com/HPImageArchive.aspx"
 	BASE_PARAMS = {
