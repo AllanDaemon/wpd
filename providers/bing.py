@@ -35,24 +35,6 @@ class BingImage(ImageBase):
 	local: Optional[Path] = None
 
 
-_ID_PATTERN = re.compile(r'OHR\.([^_]+)_EN-US(\d*)_(\d+)x(\d+).(\w+)', re.I | re.U)
-
-def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
-	query = urlparse(url).query
-	_id = parse_qs(query)['id'][0]
-	m = _ID_PATTERN.match(_id)
-	assert m and len(m.groups()) == 5
-	id_str, _id_n, _r_w, _r_h, ext = m.groups()
-	id_n = int(_id_n)
-	r_w = int(_r_w)
-	r_h = int(_r_h)
-	return _id, id_str, id_n, ext, (r_w, r_h)
-
-def set_file_date(f: Path, date: str):
-	a_time = f.stat().st_mtime
-	m_time = datetime.strptime(date, '%Y%m%d').timestamp()
-	os.utime(f, (a_time, m_time))
-
 
 class BingProvider(ProviderBase):
 	BASE_IMG_URL = "http://bing.com"
@@ -142,6 +124,26 @@ class BingProvider(ProviderBase):
 	def load(cls):
 		log(f"{cls.__name__}: Loading data (file={cls.DATA_FILE})")
 		cls.data = yaml.unsafe_load(cls.DATA_FILE.open())
+
+
+
+_ID_PATTERN = re.compile(r'OHR\.([^_]+)_EN-US(\d*)_(\d+)x(\d+).(\w+)', re.I | re.U)
+
+def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
+	query = urlparse(url).query
+	_id = parse_qs(query)['id'][0]
+	m = _ID_PATTERN.match(_id)
+	assert m and len(m.groups()) == 5
+	id_str, _id_n, _r_w, _r_h, ext = m.groups()
+	id_n = int(_id_n)
+	r_w = int(_r_w)
+	r_h = int(_r_h)
+	return _id, id_str, id_n, ext, (r_w, r_h)
+
+def set_file_date(f: Path, date: str):
+	a_time = f.stat().st_mtime
+	m_time = datetime.strptime(date, '%Y%m%d').timestamp()
+	os.utime(f, (a_time, m_time))
 
 
 
