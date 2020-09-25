@@ -6,6 +6,7 @@ from pathlib import Path
 from collections import UserList
 from typing import ClassVar, Optional
 from datetime import datetime
+from enum import Enum
 import os
 import yaml
 
@@ -15,6 +16,16 @@ CACHE_DIR = Path('cache')
 log = print
 
 ##### IMAGE DATA #####
+
+
+class StatusEnum:
+	UNPROCESSED = 'UNPROCESSED'
+	OK = 'OK'
+
+	# General errors when handling the page
+	ERROR = 'ERROR'	# General error while processing
+	ERROR_DOWNLOADING = 'ERROR_DOWNLOADING'
+
 
 @dataclass
 class ImageBase:
