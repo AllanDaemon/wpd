@@ -300,19 +300,39 @@ p = ApodProvider
 # p.load()
 
 
-STATUS = {}
+_STATUS_FILE = ApodProvider.DATA_DIR / 'STATUS.yaml'
+STATUS = yaml.unsafe_load(_STATUS_FILE.open())
 
-for page in pages:
-	print(f'processing {page}', end='\t')
-	pp = PAGE_DIR / page
-	t = pp.read_text(errors='replace')
-	try:
-		r = ApodProvider.parse_day_page(t, None, page)
-		STATUS[page] = r
-		if r:
-			print('\t', r)
-		else:
-			print("\tNONE")
-	except:
-		print("\tERROR")
-		STATUS[page] = Status.ERROR
+# STATUS = {}
+# for page in pages:
+# 	print(f'processing {page}', end='\t')
+# 	pp = PAGE_DIR / page
+# 	t = pp.read_text(errors='replace')
+# 	try:
+# 		r = ApodProvider.parse_day_page(t, None, page)
+# 		STATUS[page] = r
+# 		if r:
+# 			print('\t', r)
+# 		else:
+# 			print("\tNONE")
+# 	except:
+# 		print("\tERROR")
+# 		STATUS[page] = Status.ERROR
+
+
+def db_status_fill():
+	from db import db, ApodStatus
+
+	db.drop_tables([ApodStatus])
+	db.create_tables([ApodStatus])
+
+	from datetime import datetime
+	with db.atomic():
+		print()
+		for page_name, status in reversed(STATUS.items()):
+			print(f'***Inserting into db page {page_name}', end='\r')
+			d = datetime.strptime(page_name, ApodProvider.DATE_FNAME_BASE).date()
+			ApodStatus.create(date=d, f_name=page_name, status=status.name, status_int=status.value)
+		print('Done')
+	db.commit()
+
