@@ -13,6 +13,8 @@ import requests
 from .base import ImageBase, ProviderBase, CACHE_DIR, log
 
 
+##### IMAGE DATA #####
+
 @dataclass
 class BingImage(ImageBase):
 	# date: str
@@ -28,6 +30,7 @@ class BingImage(ImageBase):
 	_hash: str
 
 
+##### PROVIDER CLASS #####
 
 class BingProvider(ProviderBase):
 	SHORT_NAME = 'bing'
