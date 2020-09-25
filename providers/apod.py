@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from urllib.parse import urlparse, parse_qs
 from datetime import datetime, date as Date
-from typing import Optional, Union, ClassVar
+from typing import Optional, Union
 from pathlib import Path
 
 import requests
 import lxml.html
 from lxml.html import HtmlElement
+from singleton_decorator import singleton
 
 from .base import ImageBase, ProviderBase, StatusEnum, CACHE_DIR, log
 
@@ -67,19 +67,20 @@ class ApodImage(ImageBase):
 
 ##### PROVIDER CLASS #####
 
+@singleton
 class ApodProvider(ProviderBase):
 	SHORT_NAME = 'apod'
 
 	# For pylint sakes
-	DATA_DIR: ClassVar[Path]
-	IMG_DIR: ClassVar[Path]
-	DATA_FILE: ClassVar[Path]
-	data: ClassVar[list[ImageBase]]
+	# DATA_DIR: ClassVar[Path]
+	# IMG_DIR: ClassVar[Path]
+	# DATA_FILE: ClassVar[Path]
+	# data: ClassVar[list[ImageBase]]
 
-	# @classmethod
-	# def PAGE_DIR(cls) -> Path:
-	# 	return cls.DATA_DIR / 'pages'
-	PAGE_DIR: ClassVar[Path] = DATA_DIR / 'pages'
+	@property
+	def PAGE_DIR(self) -> Path:
+		return self.DATA_DIR / 'pages'
+	# PAGE_DIR: Path = DATA_DIR / 'pages'
 
 	# ARCHIVE_URL = "https://apod.nasa.gov/apod/archivepix.html"
 	# FULL_ARCHIVE_URL = "https://apod.nasa.gov/apod/archivepixFull.html"
@@ -94,88 +95,81 @@ class ApodProvider(ProviderBase):
 
 	@classmethod
 	def date2page_name(cls, date: Date) -> str:
-		return date.strftime(cls.DATE_FNAME_BASE)
+		return date.strftime(cls.DATE_F_NAME_BASE)
 
 	@classmethod
 	def page_name2date(cls, page_name: str) -> Date:
-		return datetime.strptime(page_name, cls.DATE_FNAME_BASE).date()
+		return datetime.strptime(page_name, cls.DATE_F_NAME_BASE).date()
 
 
-	@classmethod
-	def get_page(cls, f_name: str, cache=PAGE_DIR) -> str:
-		log(f"{cls.__name__}: Getting page ({f_name=})")
+	def get_page(self, f_name: str, cache=PAGE_DIR) -> str:
+		log(f"{self.__class__.__name__}: Getting page ({f_name=})")
 
-		# f_name = date.strftime(cls.DATE_FNAME_BASE)
+		# f_name = date.strftime(self.DATE_FNAME_BASE)
 
 		if cache and (cache / f_name).is_file():
 			page = (cache / f_name).read_text(errors='replace')
 		else:
-			page = cls.download_day_page(date)
+			page = self.download_day_page(date)
 
 		return page
 
 
-	@classmethod
-	def get_day_info(cls, date: Date, cache=PAGE_DIR):
-		log(f"{cls.__name__}: Getting day info ({date=})")
+	def get_day_info(self, date: Date, cache=PAGE_DIR):
+		log(f"{self.__class__.__name__}: Getting day info ({date=})")
 
-		f_name = cls.date2page_name(date)
-		page = cls.download_day_page(date, cache)
-		return cls.parse_day_page(page, date, f_name)
+		f_name = self.date2page_name(date)
+		page = self.download_day_page(date, cache)
+		return self.parse_day_page(page, date, f_name)
 
 	
-	@classmethod
-	def get_archive_info(cls, full_archive=False, cache:Optional[Path]=None):
-		log(f"{cls.__name__}: Getting archive info ({full_archive=})")
+	def get_archive_info(self, full_archive=False, cache:Optional[Path]=None):
+		log(f"{self.__class__.__name__}: Getting archive info ({full_archive=})")
 
 		f_name = 'archivepix.html' if not full_archive else 'archivepixFull.html'
 
 		if cache and (cache / f_name).is_file():
 			page = (cache / f_name).read_text(errors='replace')
 		else:
-			page = cls.download_archive_page(full_archive)
+			page = self.download_archive_page(full_archive)
 
-		return cls.parse_archive_page(page)
+		return self.parse_archive_page(page)
 
-	@classmethod
-	def get_pages_list(cls, cache=None, full:bool=False) -> list[str]:
+	def get_pages_list(self, cache=None, full:bool=False) -> list[str]:
 		if cache is True:
-			cache = cls.DATA_DIR
-		return cls.get_archive_info(full, cache)
+			cache = self.DATA_DIR
+		return self.get_archive_info(full, cache)
 
 
 	# TODO: unify all download functions
 
-	@classmethod
-	def download_day_page(cls, date: Date, save_cache=True) -> str:
-		return cls.download_page(cls.date2page_name(date), save_cache)
+	def download_day_page(self, date: Date, save_cache=True) -> str:
+		return self.download_page(self.date2page_name(date), save_cache)
 
-	@classmethod
-	def download_archive_page(cls, full_archive=False, save_cache=True) -> str:
-		f_name = cls.FULL_ARCHIVE_F_NAME if full_archive else cls.ARCHIVE_F_NAME
-		return cls.download_page(f_name, save_cache)
+	def download_archive_page(self, full_archive=False, save_cache=True) -> str:
+		f_name = self.FULL_ARCHIVE_F_NAME if full_archive else self.ARCHIVE_F_NAME
+		return self.download_page(f_name, save_cache)
 
-	@classmethod
-	def download_page(cls, f_name:str, save_cache=True) -> str:
-		log(f"{cls.__name__}: Downloading page ({f_name=})")
+	def download_page(self, f_name:str, save_cache=True) -> str:
+		log(f"{self.__class__.__name__}: Downloading page ({f_name=})")
 	
-		url = cls.URL_BASE + f_name
+		url = self.URL_BASE + f_name
 		res = requests.get(url)
 		assert res.status_code == 200
 
 		if save_cache:
 			if save_cache is True:
-				save_cache = cls.PAGE_DIR
+				save_cache = self.PAGE_DIR
 			assert isinstance(save_cache, Path)
 			f_path = save_cache / f_name
-			log(f"{cls.__name__}: \tSaving archive (file={f_path})")
+			log(f"{self.__class__.__name__}: \tSaving archive (file={f_path})")
 			f_path.write_bytes(res.content)
 		
 		return res.text
 
 	# @classmethod
 	# def download_day_page(cls, date: Date, cache=PAGE_DIR, save_raw=True) -> str:
-	# 	log(f"{cls.__name__}: Downloading day pages ({date=})")
+	# 	log(f"{self.__class__.__name__}: Downloading day pages ({date=})")
 	
 	# 	f_name = cls.date2page_name(date)
 	# 	url = cls.URL_BASE + f_name
@@ -184,14 +178,14 @@ class ApodProvider(ProviderBase):
 
 	# 	if save_raw:
 	# 		f_path = cache / f_name
-	# 		log(f"{cls.__name__}: \tSaving arquive (file={f_path})")
+	# 		log(f"{self.__class__.__name__}: \tSaving arquive (file={f_path})")
 	# 		f_path.write_bytes(res.content)
 		
 	# 	return res.text
 
 	# @classmethod
 	# def download_archive_page(cls, full_archive=False, save_raw=True) -> str:
-	# 	log(f"{cls.__name__}: Downloading archive info ({full_archive=})")
+	# 	log(f"{self.__class__.__name__}: Downloading archive info ({full_archive=})")
 
 	# 	f_name = cls.FULL_ARCHIVE_F_NAME if full_archive else cls.ARCHIVE_F_NAME
 	# 	url = cls.URL_BASE = f_name
@@ -200,23 +194,21 @@ class ApodProvider(ProviderBase):
 
 	# 	if save_raw:
 	# 		f_path = cls.DATA_DIR / f_name
-	# 		log(f"{cls.__name__}: \tSaving arquive (file={f_path})")
+	# 		log(f"{self.__class__.__name__}: \tSaving arquive (file={f_path})")
 	# 		f_path.write_bytes(res.content)
 		
 	# 	return res.text
 
-	@classmethod
-	def parse_archive_page(cls, page: str) -> list[str]:
+	def parse_archive_page(self, page: str) -> list[str]:
 		dom = get_dom(page)
 		entries = dom.xpath('/html/body/b/a/@href')
 		pages = list(map(str, entries))
 		return pages
 
-	@classmethod
-	def parse_day_page(cls, page: str, date: Date, f_name:str):
+	def parse_day_page(self, page: str, date: Date, f_name:str):
 		dom = get_dom(page)
 
-		if n_img := cls._should_skip_page(dom):
+		if n_img := self._should_skip_page(dom):
 			return n_img
 
 		image_href = dom.css_one('body > center:first-child > p:last-child > a').attrib['href']
@@ -241,8 +233,8 @@ class ApodProvider(ProviderBase):
 		return PageStatus.OK
 		return image_href, title, credit, explanation
 
-	@classmethod
-	def _should_skip_page(cls, dom: HtmlElement) -> Union[bool, PageStatus]:
+	@staticmethod
+	def _should_skip_page(dom: HtmlElement) -> Union[bool, PageStatus]:
 		# Old page format, we don't proccess them because the
 		# images are too small for being used as wallpaper.
 		if not dom.cssselect('body > center'):
@@ -265,15 +257,14 @@ class ApodProvider(ProviderBase):
 		return False
 
 
-	@classmethod
-	def process_image_info(cls, info: dict) -> ApodImage:
+	def process_image_info(self, info: dict) -> ApodImage:
 		return ApodImage(
 			# date = info['startdate'],
 			# title = info['title'],
 			# about = info['copyright'],
 			# _hash = info['hsh'],
 			# url_path = info['url'],
-			# url = cls.BASE_IMG_URL + info['url'],
+			# url = self.BASE_IMG_URL + info['url'],
 			# f_name = f_name,
 			# extension = ext,
 			# id_str = id_str,
@@ -281,12 +272,11 @@ class ApodProvider(ProviderBase):
 			# resolution = res,
 		)
 
-	@classmethod
-	def download_images(cls, overwrite: bool = False, auto_dump: bool = True):
-		log(f"{cls.__name__}: Downloading images")
-		for img in cls.data:
-			f_path = cls.IMG_DIR / img.f_name
-			log(f'{cls.__name__}:\tDownloading img: "{img.url}"')
+	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
+		log(f"{self.__class__.__name__}: Downloading images")
+		for img in self.data:
+			f_path = self.IMG_DIR / img.f_name
+			log(f'{self.__class__.__name__}:\tDownloading img: "{img.url}"')
 
 			if not overwrite:
 				if img.local:
@@ -302,23 +292,25 @@ class ApodProvider(ProviderBase):
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
 			img.local = f_path.relative_to(CACHE_DIR)
-			cls.set_file_date(f_path, img.date)
+			self.set_file_date(f_path, img.date)
 		
 		if auto_dump:
-			cls.dump()
+			self.dump()
 
 
-	@classmethod
-	def classify_pages(cls, pages: list[str]) -> dict[str, PageStatus]:
+	def classify_pages(self, pages: list[str]) -> dict[str, PageStatus]:
 		status = {}
 
 		print()
 		for page in pages:
-			print(f'Classifying {page}', end='\r')
-			page_path: Path = cls.PAGE_DIR / page
+			page_path: Path = self.PAGE_DIR / page
 
 		print()
 		return status
+
+
+p = ApodProvider()
+# p.load()
 
 # for page in pages[:0]:
 # 	pp = ApodProvider.PAGE_DIR / page
@@ -346,15 +338,14 @@ def db_status_fill():
 	db.commit()
 
 
-p = ApodProvider
-# p.load()
+
 
 import yaml
 pages = yaml.unsafe_load(open('cache/apod/pages_list.yaml'))
 pages.reverse()
 
-_STATUS_FILE = ApodProvider.DATA_DIR / 'STATUS.yaml'
-_GROUPS_FILE = ApodProvider.DATA_DIR / 'GROUPS.yaml'
+_STATUS_FILE = p.DATA_DIR / 'STATUS.yaml'
+_GROUPS_FILE = p.DATA_DIR / 'GROUPS.yaml'
 # sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
 # GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
 
@@ -363,11 +354,11 @@ pages.reverse()
 
 # for page in pages[:0]:
 # 	print(f'processing {page}', end='\t')
-# 	pp = ApodProvider.PAGE_DIR / page
+# 	pp = p.PAGE_DIR / page
 # 	t = pp.read_text(errors='replace')
 # 	# try:
 # 	if True:
-# 		r = ApodProvider.parse_day_page(t, None, page)
+# 		r = p.parse_day_page(t, None, page)
 # 		STATUS[page] = PageStatus.ERROR
 
 

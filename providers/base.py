@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections import UserList
-from typing import ClassVar, Optional
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 import os
@@ -42,49 +42,45 @@ class ImageBase:
 
 ##### PROVIDER CLASS #####
 
-class ProviderBaseMeta(type, UserList):
-
-	@property
-	def DATA_DIR(cls):
-		return CACHE_DIR / cls.SHORT_NAME	# type: ignore
-
-	@property
-	def IMG_DIR(cls):
-		return cls.DATA_DIR / 'imgs'
-
-	@property
-	def DATA_FILE(cls):
-		return cls.DATA_DIR / f'{cls.SHORT_NAME}.yaml'	# type: ignore
 
 
-class ProviderBase(metaclass=ProviderBaseMeta):
+class ProviderBase(UserList):
 	SHORT_NAME = "base"
 
+
+	@property
+	def DATA_DIR(self):
+		return CACHE_DIR / self.SHORT_NAME	# type: ignore
+
+	@property
+	def IMG_DIR(self):
+		return self.DATA_DIR / 'imgs'
+
+	@property
+	def DATA_FILE(self):
+		return self.DATA_DIR / f'{self.SHORT_NAME}.yaml'	# type: ignore
+
 	# should be copied in subclasses otherwise pylint can't see it.
-	DATA_DIR: ClassVar[Path]
-	IMG_DIR: ClassVar[Path]
-	DATA_FILE: ClassVar[Path]
+	# DATA_DIR: ClassVar[Path]
+	# IMG_DIR: ClassVar[Path]
+	# DATA_FILE: ClassVar[Path]
 
-	data: ClassVar[list[ImageBase]]
+	data: list[ImageBase]
 
 
-	@classmethod
-	def dump(cls):
-		log(f"{cls.__name__}: Dumping data (file={cls.DATA_FILE})")
-		yaml.dump(cls.data, cls.DATA_FILE.open('w'))
+	def dump(self):
+		log(f"{self.__class__.__name__}: Dumping data (file={self.DATA_FILE})")
+		yaml.dump(self.data, self.DATA_FILE.open('w'))
 
-	@classmethod
-	def load(cls):
-		log(f"{cls.__name__}: Loading data (file={cls.DATA_FILE})")
-		cls.data = yaml.unsafe_load(cls.DATA_FILE.open())
+	def load(self):
+		log(f"{self.__class__.__name__}: Loading data (file={self.DATA_FILE})")
+		self.data = yaml.unsafe_load(self.DATA_FILE.open())
 
-	@classmethod
-	def download(cls):
-		cls.data = cls.download_info()
-		cls.dump()
+	def download(self):
+		self.data = self.download_info()
+		self.dump()
 
-	@classmethod
-	def download_info(cls, save_raw=True):
+	def download_info(self, save_raw=True):
 		raise NotImplementedError
 
 	@staticmethod
