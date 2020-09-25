@@ -35,6 +35,9 @@
 			// Customs
 			"--disable=unsubscriptable-object",
 		],
+		"cSpell.words": [
+			"apod"
+		],
 
 		// "python.linting.mypyArgs": [
 			// "--ignore-missing-imports",
