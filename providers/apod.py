@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from os import readv
-from re import error
 from urllib.parse import urlparse, parse_qs
 from datetime import date as Date
-from typing import ClassVar
+from typing import Union, ClassVar
 from pathlib import Path
 
 import requests
@@ -41,14 +39,23 @@ HtmlElement.xp_one = xp_one
 
 from enum import IntEnum
 
-class Status(IntEnum):
+class PageStatus(IntEnum):
 	UNPROCESSED = 0
 	OK = 1
-	VERTICAL = 2
+
+	# the layout is vertical, so the image is in portrait mode
+	HORIZONTAL = 2
+	# the layout is old, so the image is probably very small and
+	# it don't matter to us
+	OLD = 3
+
+	# Pages without static images (videos, applets, interactive stuff, etc)
 	IFRAME = 10
 	OBJECT = 11
 	EMBED = 12
 	APPLET = 13
+
+	# General errors when handling the page
 	ERROR = 100
 
 
@@ -61,11 +68,6 @@ class ApodImage(ImageBase):
 
 
 ##### PROVIDER CLASS #####
-
-# from .apod_non_picture_dates import non_picture_dates
-non_picture_dates: list[str] = []
-
-new_non_picture_dates: list[str] = []
 
 class ApodProvider(ProviderBase):
 	SHORT_NAME = 'apod'
@@ -103,6 +105,21 @@ class ApodProvider(ProviderBase):
 
 		return cls.parse_day_page(page, date, f_name)
 
+	
+	@classmethod
+	def get_archive_info(cls, full_archive=False, cache=PAGE_DIR):
+		log(f"{cls.__name__}: Getting day info ({date=})")
+
+		f_name = date.strftime(cls.DATE_FNAME_BASE)
+
+		if cache and (cache / f_name).is_file():
+			page = (cache / f_name).read_text(errors='replace')
+		else:
+			page = cls.download_day_page(date)
+
+		return cls.parse_day_page(page, date, f_name)
+
+	# TODO: unify all download functions
 	@classmethod
 	def download_day_page(cls, date: Date, cache=PAGE_DIR, save_raw=True) -> str:
 		log(f"{cls.__name__}: Downloading day pages ({date=})")
@@ -119,36 +136,31 @@ class ApodProvider(ProviderBase):
 		return res.text
 
 	@classmethod
+	def download_archive_info(cls, full_archive=False, save_raw=True) -> str:
+		log(f"{cls.__name__}: Downloading archive info ({full_archive=})")
+
+		url = cls.ARCHIVE_URL if not full_archive else cls.FULL_ARCHIVE_URL
+		res = requests.get(url)
+		assert res.status_code == 200
+
+		if save_raw:
+			_f_name = Path(url)
+			f_path = cls.DATA_DIR / _f_name.name
+			log(f"{cls.__name__}: \tSaving arquive (file={f_path})")
+			f_path.write_bytes(res.content)
+		
+		return res.text
+
+	@classmethod
 	def parse_day_page(cls, page: str, date: Date, f_name:str):
 		dom = get_dom(page)
 
 		is_layout_horizontal = not dom.xpath('/html/body/table')
-		is_old_format = not dom.cssselect('body > center')
 
-		n_img = cls._is_page_not_image(dom) if not is_old_format else False
-		if n_img:
+		if n_img := cls._should_skip_page(dom):
 			return n_img
 
-		if not is_layout_horizontal:
-			return Status.VERTICAL
-
-		if is_old_format:
-			breakpoint()
-
-		# if cls._is_page_not_image(dom) or not is_layout_horizontal:
-		# 	if f_name not in non_picture_dates:
-		# 		print("NEW VIDEO FOUND:\t", f_name)
-		# 		new_non_picture_dates.append(f_name)
-		# 		for v in new_non_picture_dates:
-		# 			print(f"\t'{v}',")
-		# 	print('Skipping video page:', f_name)
-		# 	return None
-
-
 		image_href = dom.css_one('body > center:first-child > p:last-child > a').attrib['href']
-		# if is_layout_horizontal:
-		# else:
-		# 	image_href = dom.xp_one('/html/body/table/tr/td[1]/a').attrib['href']
 
 		# try:
 		# 	title = dom.xp_one('/html/body/center[2]/b[1]/text()').strip()
@@ -167,79 +179,32 @@ class ApodProvider(ProviderBase):
 		# explanation = explanation.removeprefix(expl_header).strip()
 		explanation = None
 
-		return Status.OK
+		return PageStatus.OK
 		return image_href, title, credit, explanation
 
 	@classmethod
-	def _is_page_not_image(cls, dom: HtmlElement) -> bool:
+	def _should_skip_page(cls, dom: HtmlElement) -> Union[bool, PageStatus]:
+		# Old page format, we don't proccess them because the
+		# images are too small for being used as wallpaper.
+		if not dom.cssselect('body > center'):
+			return PageStatus.OLD
 
-		is_old_format = not dom.cssselect('body > center')
-		if is_old_format:
-			return False
+		# Pages with horizontal layout means image in portrait
+		# mode, so we don't want them.
+		if dom.xpath('/html/body/table'):
+			return PageStatus.HORIZONTAL
 
 		link_node: HtmlElement = dom.css_one('body > center:first-child > p:last-child')
-		iframe = link_node.cssselect('iframe')
-		if iframe:
-			assert len(iframe) == 1
-			iframe = iframe[0]
-			return Status.IFRAME
-			src = iframe.attrib['src']
-			if 'youtube.com' in src: return True
-			elif 'vimeo.com' in src: return True
-			elif 'ustream.tv' in src: return True
-			elif 'meteorshowers.org' in src: return True
-			elif 'apod.nasa.gov' in src: return True
-			elif 'earth.nullschool.net' in src: return True
-			elif 'sci.esa.int' in src: return True
-			elif 'vestatrek.jpl.nasa.gov' in src: return True
-			else:
-				return True
-				# breakpoint()
-				# raise NotImplementedError
-
-		# object_node = link_node.find_class('object')is_old_format = not dom.cssselect('body > center')
-		object_node = link_node.cssselect('object')
-		if object_node:
-			return Status.OBJECT
-			# assert len(object_node) == 1
-			# object_node = object_node[0]
-			# _type = object_node.attrib['type']
-			# if _type in (
-			# 	'application/x-shockwave-flash',
-			# ): return True
-			# else:
-			# 	breakpoint()
-			# 	raise NotImplementedError
-
-		embed = link_node.cssselect('embed')
-		if embed:
-			return Status.EMBED
-
-		applet = link_node.cssselect('applet')
-		if applet:
-			return Status.APPLET
-
+		if link_node.cssselect('iframe'):
+			return PageStatus.IFRAME
+		if link_node.cssselect('object'):
+			return PageStatus.OBJECT
+		if link_node.cssselect('embed'):
+			return PageStatus.EMBED
+		if link_node.cssselect('applet'):
+			return PageStatus.APPLET
 		return False
 
-
-
-	@classmethod
-	def download_archive_info(cls, full_archive=False, save_raw=True):
-		log(f"{cls.__name__}: Downloading archive info ({full_archive=})")
-
-		url = cls.ARCHIVE_URL if not full_archive else cls.FULL_ARCHIVE_URL
-		res = requests.get(url)
-		assert res.status_code == 200
-
-		if save_raw:
-			_f_name = Path(url)
-			f_path = cls.DATA_DIR / _f_name.name
-			log(f"{cls.__name__}: \tSaving arquive (file={f_path})")
-			f_path.write_bytes(res.content)
-
-		entries_raw = res.text 	#PARSE
-		entries = list()
-		return entries
 
 	@classmethod
 	def process_image_info(cls, info: dict) -> ApodImage:
@@ -303,60 +268,38 @@ def db_status_fill():
 	db.commit()
 
 
-
-
-
+p = ApodProvider
+# p.load()
 
 import yaml
 pages = yaml.unsafe_load(open('cache/apod/pages_list.yaml'))
 pages.reverse()
-PAGE_DIR = ApodProvider.DATA_DIR / 'pages'
-
-
-
-# for page in pages[4000:]:
-# 	if page in non_picture_dates:
-# 		print('skipping video', page)
-# 		continue
-# 	print(f'processing {page}')
-# 	pp = PAGE_DIR / page
-# 	t = pp.read_text(errors='replace')
-# 	r = ApodProvider.parse_day_page(t, None, page)
-# 	if r:
-# 		print('\t',r[0], r[1])
-# 	else:
-# 		print("NONE")
-
-
-p = ApodProvider
-# p.load()
-
 
 _STATUS_FILE = ApodProvider.DATA_DIR / 'STATUS.yaml'
 _GROUPS_FILE = ApodProvider.DATA_DIR / 'GROUPS.yaml'
-sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
-GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
+# sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
+# GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
 
 STATUS = {}
 pages.reverse()
 
-for page in pages[:0]:
-	print(f'processing {page}', end='\t')
-	pp = PAGE_DIR / page
-	t = pp.read_text(errors='replace')
-	# try:
-	if True:
-		r = ApodProvider.parse_day_page(t, None, page)
-		STATUS[page] = Status.ERROR
+# for page in pages[:0]:
+# 	print(f'processing {page}', end='\t')
+# 	pp = ApodProvider.PAGE_DIR / page
+# 	t = pp.read_text(errors='replace')
+# 	# try:
+# 	if True:
+# 		r = ApodProvider.parse_day_page(t, None, page)
+# 		STATUS[page] = PageStatus.ERROR
 
 
 
-_group = Status.ERROR.name
-for page in GROUPS[_group]:
-	print(f'processing {_group=} {page=}', end='\t')
-	pp = PAGE_DIR / page
-	t = pp.read_text(errors='replace')
-	dom = get_dom(t)
-	is_old_format = not dom.cssselect('body > center')
-	print('OLD' if is_old_format else 'NORMAL')
-	# assert is_old_format
+# _group = PageStatus.ERROR.name
+# for page in GROUPS[_group]:
+# 	print(f'processing {_group=} {page=}', end='\t')
+# 	pp = ApodProvider.PAGE_DIR / page
+# 	t = pp.read_text(errors='replace')
+# 	dom = get_dom(t)
+# 	is_old_format = not dom.cssselect('body > center')
+# 	print('OLD' if is_old_format else 'NORMAL')
+# 	# assert is_old_format
