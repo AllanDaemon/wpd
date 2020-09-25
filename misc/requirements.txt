@@ -2,3 +2,4 @@ requests
 lxml
 cssselect
 peewee
+singleton-decorator
