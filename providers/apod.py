@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse, parse_qs
 from datetime import date as Date
-from typing import Union, ClassVar
+from typing import Optional, Union, ClassVar
 from pathlib import Path
 
 import requests
@@ -107,17 +107,23 @@ class ApodProvider(ProviderBase):
 
 	
 	@classmethod
-	def get_archive_info(cls, full_archive=False, cache=PAGE_DIR):
-		log(f"{cls.__name__}: Getting day info ({date=})")
+	def get_archive_info(cls, full_archive=False, cache:Optional[Path]=None):
+		log(f"{cls.__name__}: Getting archive info ({full_archive=})")
 
-		f_name = date.strftime(cls.DATE_FNAME_BASE)
+		f_name = 'archivepix.html' if not full_archive else 'archivepixFull.html'
 
 		if cache and (cache / f_name).is_file():
 			page = (cache / f_name).read_text(errors='replace')
 		else:
-			page = cls.download_day_page(date)
+			page = cls.download_archive_page(full_archive)
 
-		return cls.parse_day_page(page, date, f_name)
+		return cls.parse_archive_page(page)
+
+	@classmethod
+	def get_pages_list(cls, cache=None, full:bool=False) -> list[str]:
+		if cache is True:
+			cache = cls.DATA_DIR
+		return cls.get_archive_info(full, cache)
 
 	# TODO: unify all download functions
 	@classmethod
@@ -136,7 +142,7 @@ class ApodProvider(ProviderBase):
 		return res.text
 
 	@classmethod
-	def download_archive_info(cls, full_archive=False, save_raw=True) -> str:
+	def download_archive_page(cls, full_archive=False, save_raw=True) -> str:
 		log(f"{cls.__name__}: Downloading archive info ({full_archive=})")
 
 		url = cls.ARCHIVE_URL if not full_archive else cls.FULL_ARCHIVE_URL
@@ -152,10 +158,15 @@ class ApodProvider(ProviderBase):
 		return res.text
 
 	@classmethod
+	def parse_archive_page(cls, page: str) -> list[str]:
+		dom = get_dom(page)
+		entries = dom.xpath('/html/body/b/a/@href')
+		pages = list(map(str, entries))
+		return pages
+
+	@classmethod
 	def parse_day_page(cls, page: str, date: Date, f_name:str):
 		dom = get_dom(page)
-
-		is_layout_horizontal = not dom.xpath('/html/body/table')
 
 		if n_img := cls._should_skip_page(dom):
 			return n_img
