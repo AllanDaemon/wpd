@@ -39,6 +39,19 @@ HtmlElement.xp_one = xp_one
 
 ##### IMAGE DATA #####
 
+from enum import IntEnum
+
+class Status(IntEnum):
+	UNPROCESSED = 0
+	OK = 1
+	VERTICAL = 2
+	IFRAME = 10
+	OBJECT = 11
+	EMBED = 12
+	APPLET = 13
+	ERROR = 100
+
+
 @dataclass
 class ApodImage(ImageBase):
 	# date: str
@@ -110,13 +123,17 @@ class ApodProvider(ProviderBase):
 		dom = get_dom(page)
 
 		is_layout_horizontal = not dom.xpath('/html/body/table')
+		is_old_format = not dom.cssselect('body > center')
 
-		n_img = cls._is_page_not_image(dom)
+		n_img = cls._is_page_not_image(dom) if not is_old_format else False
 		if n_img:
 			return n_img
 
 		if not is_layout_horizontal:
 			return Status.VERTICAL
+
+		if is_old_format:
+			breakpoint()
 
 		# if cls._is_page_not_image(dom) or not is_layout_horizontal:
 		# 	if f_name not in non_picture_dates:
@@ -155,6 +172,11 @@ class ApodProvider(ProviderBase):
 
 	@classmethod
 	def _is_page_not_image(cls, dom: HtmlElement) -> bool:
+
+		is_old_format = not dom.cssselect('body > center')
+		if is_old_format:
+			return False
+
 		link_node: HtmlElement = dom.css_one('body > center:first-child > p:last-child')
 		iframe = link_node.cssselect('iframe')
 		if iframe:
@@ -175,7 +197,7 @@ class ApodProvider(ProviderBase):
 				# breakpoint()
 				# raise NotImplementedError
 
-		# object_node = link_node.find_class('object')
+		# object_node = link_node.find_class('object')is_old_format = not dom.cssselect('body > center')
 		object_node = link_node.cssselect('object')
 		if object_node:
 			return Status.OBJECT
@@ -262,17 +284,27 @@ class ApodProvider(ProviderBase):
 			cls.dump()
 
 
-from enum import IntEnum
 
-class Status(IntEnum):
-	UNPROCESSED = 0
-	OK = 1
-	VERTICAL = 2
-	IFRAME = 10
-	OBJECT = 11
-	EMBED = 12
-	APPLET = 13
-	ERROR = 100
+
+def db_status_fill():
+	from db import db, ApodStatus
+
+	db.drop_tables([ApodStatus])
+	db.create_tables([ApodStatus])
+
+	from datetime import datetime
+	with db.atomic():
+		print()
+		for page_name, status in reversed(STATUS.items()):
+			print(f'***Inserting into db page {page_name}', end='\r')
+			d = datetime.strptime(page_name, ApodProvider.DATE_FNAME_BASE).date()
+			ApodStatus.create(date=d, f_name=page_name, status=status.name, status_int=status.value)
+		print('Done')
+	db.commit()
+
+
+
+
 
 
 import yaml
@@ -301,38 +333,30 @@ p = ApodProvider
 
 
 _STATUS_FILE = ApodProvider.DATA_DIR / 'STATUS.yaml'
-STATUS = yaml.unsafe_load(_STATUS_FILE.open())
+_GROUPS_FILE = ApodProvider.DATA_DIR / 'GROUPS.yaml'
+sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
+GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
 
-# STATUS = {}
-# for page in pages:
-# 	print(f'processing {page}', end='\t')
-# 	pp = PAGE_DIR / page
-# 	t = pp.read_text(errors='replace')
-# 	try:
-# 		r = ApodProvider.parse_day_page(t, None, page)
-# 		STATUS[page] = r
-# 		if r:
-# 			print('\t', r)
-# 		else:
-# 			print("\tNONE")
-# 	except:
-# 		print("\tERROR")
-# 		STATUS[page] = Status.ERROR
+STATUS = {}
+pages.reverse()
+
+for page in pages[:0]:
+	print(f'processing {page}', end='\t')
+	pp = PAGE_DIR / page
+	t = pp.read_text(errors='replace')
+	# try:
+	if True:
+		r = ApodProvider.parse_day_page(t, None, page)
+		STATUS[page] = Status.ERROR
 
 
-def db_status_fill():
-	from db import db, ApodStatus
 
-	db.drop_tables([ApodStatus])
-	db.create_tables([ApodStatus])
-
-	from datetime import datetime
-	with db.atomic():
-		print()
-		for page_name, status in reversed(STATUS.items()):
-			print(f'***Inserting into db page {page_name}', end='\r')
-			d = datetime.strptime(page_name, ApodProvider.DATE_FNAME_BASE).date()
-			ApodStatus.create(date=d, f_name=page_name, status=status.name, status_int=status.value)
-		print('Done')
-	db.commit()
-
+_group = Status.ERROR.name
+for page in GROUPS[_group]:
+	print(f'processing {_group=} {page=}', end='\t')
+	pp = PAGE_DIR / page
+	t = pp.read_text(errors='replace')
+	dom = get_dom(t)
+	is_old_format = not dom.cssselect('body > center')
+	print('OLD' if is_old_format else 'NORMAL')
+	# assert is_old_format
