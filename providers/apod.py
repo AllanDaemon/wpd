@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, date as Date
-from typing import Optional, Union
+from typing import Union
 from pathlib import Path
 from urllib.parse import parse_qsl
 import yaml
@@ -51,6 +51,7 @@ class ApodStatus(Enum):
 
 	# Skips: skip it because it is not a image or it doesn't fits our pourposes
 	SKIP = 'SKIP'	# Just skip it, whatever the reason
+	REPEATED = 'REPEATED'	# Image repeated
 	HORIZONTAL = 'HORIZONTAL' # layout is vertical, so the image is in portrait mode
 	OLD = 'OLD' # the layout is old, so the image is probably very small
 	GIF = 'GIF' # Low quality or just animations
@@ -69,6 +70,7 @@ class ApodImage(ImageBase):
 	# url: str
 	url_path: str
 	page_name: str
+	repeated: list[ApodImage] = None	# type: ignore
 
 
 ##### PROVIDER CLASS #####
@@ -95,6 +97,7 @@ class ApodProvider(ProviderBase):
 	pages: list[str] = []
 	page_status: dict[str, ApodStatus] = {}
 	groups: dict[str, list[str]] = {}
+	_url_paths: dict[str, Union[ApodImage, list[ApodImage]]] = {}
 
 
 	@classmethod
@@ -141,7 +144,7 @@ class ApodProvider(ProviderBase):
 
 		f_name = self.date2page_name(date)
 		page = self.get_page(f_name, cache)
-		return self.parse_day_page(page, date, f_name)[1]
+		return self.parse_day_page(page, f_name)[1]
 	
 	def get_archive_info(self, full_archive=False, cache=True):
 		log(f"{self.__class__.__name__}: Getting archive info ({full_archive=})")
@@ -161,7 +164,7 @@ class ApodProvider(ProviderBase):
 		return pages
 
 	### TODO: FINISH
-	def parse_day_page(self, page: str, _, f_name:str) -> tuple[ApodStatus, dict]:
+	def parse_day_page(self, page: str, f_name:str) -> tuple[ApodStatus, dict]:
 		dom = get_dom(page)
 
 		if n_img := self._should_skip_page(dom):
@@ -179,6 +182,9 @@ class ApodProvider(ProviderBase):
 
 		if not image_href.startswith('image/'):
 			return ApodStatus.SKIP, {}	# type: ignore
+
+		if image_href in self._url_paths:
+			return ApodStatus.REPEATED, {}	# type: ignore
 
 		# try:
 		# 	title = dom.xp_one('/html/body/center[2]/b[1]/text()').strip()
@@ -240,19 +246,21 @@ class ApodProvider(ProviderBase):
 		)
 
 	def process_pages(self):
+		self.data = []
 		infos = {}
 		print()
 		for page_name in self.groups[ApodStatus.OK.name]:
 			print(f'Processing {page_name}', end='\t')
 			page = self.get_page(page_name)
-			status, info_d = self.parse_day_page(page, None, page_name)
+			status, info_d = self.parse_day_page(page, page_name)
 			print(status.name)
 			assert status == ApodStatus.OK
-			info = self.process_image_info(info_d, page_name)
-			infos[page_name] = info
+			img = self.process_image_info(info_d, page_name)
+			infos[page_name] = img
+			self.data.append(img)
+			self._url_paths[img.url_path] = img
 		print()
 
-		self.data = list(infos.values())
 		return infos
 
 	def classify_pages(self, pages: list[str] = None):
@@ -265,7 +273,7 @@ class ApodProvider(ProviderBase):
 			print(f'Classifying {page_name}\t', end='\r')
 			page = self.get_page(page_name)
 			try:
-				page_status, _ = self.parse_day_page(page, None, page_name)
+				page_status, _ = self.parse_day_page(page, page_name)
 			except:
 				page_status = ApodStatus.ERROR
 			self.page_status[page_name] = page_status
@@ -290,6 +298,7 @@ class ApodProvider(ProviderBase):
 
 	def load(self):
 		super().load()
+		self._build_url_paths
 		self.load_pages()
 
 		log(f"{self.__class__.__name__}: Loading status (file={self.STATUS_FILE})")
@@ -299,6 +308,18 @@ class ApodProvider(ProviderBase):
 
 	def load_pages(self, cache=True, full=True):
 		self.pages = self.get_pages_list(cache=cache, full=full)
+
+	def _build_url_paths(self):
+		directory = self._url_paths
+		for img in self:
+			p = img.url_path
+			if p not in directory:
+				directory[p] = img
+				continue
+			if isinstance(directory[p], ApodImage):
+				directory[p] = [directory[p]]	# type: ignore
+			assert isinstance(directory[p], list)
+			directory[p].append(img)	# type: ignore
 
 
 	@classmethod
@@ -320,4 +341,5 @@ class ApodProvider(ProviderBase):
 
 
 p = ApodProvider()
-p.load()
+# p.load()
+p.load_pages()
