@@ -9,12 +9,16 @@ from datetime import datetime, date
 from enum import Enum
 from hashlib import sha256
 from PIL import Image
+from threading import Thread
+from queue import Queue
 import os
 import re
 import yaml
 
 import requests
 
+
+Image.MAX_IMAGE_PIXELS = None	# type: ignore
 
 
 CACHE_DIR = Path('cache')
@@ -58,6 +62,54 @@ class ImageBase:
 
 ##### PROVIDER CLASS #####
 
+class ThreadWorkerPoll:
+	num_workers: int = 3
+	workers: list[Thread]
+	queue: Queue
+	running: bool = True
+
+	def __init__(self, process_function, n: int = num_workers):
+		self.num_workers = n
+		self.process_function = process_function
+		self.init_async()
+		self.start()
+
+	def init_async(self):
+		self.queue = Queue()
+
+		self.workers = [
+			Thread(
+				name = f'{type(self).__name__} Thread {i}',
+				target = self.thread_loop,
+				args = (i,),
+				daemon = True,
+			)
+			for i in range(self.num_workers)
+		]
+
+	def start(self):
+		for t in self.workers:
+			t.start()
+
+	def stop(self):
+		self.running = False
+		for t in self.workers:
+			t.join()
+
+	def put(self, elem):
+		return self.queue.put(elem)
+
+	def join(self):
+		return self.queue.join()
+
+	def thread_loop(self, i):
+		log(f'Starting thread worker {i}')
+		f = self.process_function
+		while self.running:
+			arg = self.queue.get()
+			f(arg)
+			self.queue.task_done()
+
 
 
 class ProviderBase(UserList):
@@ -90,8 +142,6 @@ class ProviderBase(UserList):
 
 	def download_info(self, save_raw=True):
 		raise NotImplementedError
-
-
 
 	@staticmethod
 	def set_file_date(f: Path, d: datetime):
