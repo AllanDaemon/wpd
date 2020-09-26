@@ -18,7 +18,7 @@ log = print
 ##### IMAGE DATA #####
 
 
-class StatusEnum:
+class StatusEnum(Enum):
 	UNPROCESSED = 'UNPROCESSED'
 	OK = 'OK'
 
@@ -48,22 +48,9 @@ class ProviderBase(UserList):
 	SHORT_NAME = "base"
 
 
-	@property
-	def DATA_DIR(self):
-		return CACHE_DIR / self.SHORT_NAME	# type: ignore
-
-	@property
-	def IMG_DIR(self):
-		return self.DATA_DIR / 'imgs'
-
-	@property
-	def DATA_FILE(self):
-		return self.DATA_DIR / f'{self.SHORT_NAME}.yaml'	# type: ignore
-
-	# should be copied in subclasses otherwise pylint can't see it.
-	# DATA_DIR: ClassVar[Path]
-	# IMG_DIR: ClassVar[Path]
-	# DATA_FILE: ClassVar[Path]
+	DATA_DIR = CACHE_DIR / SHORT_NAME
+	IMG_DIR = DATA_DIR / 'imgs'
+	DATA_FILE = DATA_DIR / f'{SHORT_NAME}.yaml'
 
 	data: list[ImageBase]
 

@@ -40,7 +40,13 @@ HtmlElement.xp_one = xp_one
 
 from enum import Enum
 
-class ApodStatus(StatusEnum, Enum):
+class ApodStatus(Enum):
+	UNPROCESSED = 'UNPROCESSED'
+	OK = 'OK'
+
+	# General errors when handling the page
+	ERROR = 'ERROR'	# General error while processing
+	ERROR_DOWNLOADING = 'ERROR_DOWNLOADING'
 
 	# the layout is vertical, so the image is in portrait mode
 	HORIZONTAL = 'HORIZONTAL'
