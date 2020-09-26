@@ -11,6 +11,9 @@ import os
 import re
 import yaml
 
+import requests
+
+
 
 CACHE_DIR = Path('cache')
 
@@ -38,9 +41,9 @@ class ImageBase:
 	f_name: str
 
 	# local FS data
-	local: Optional[Path] = field(init=False)
-	len: Optional[int] = field(init=False)
-	hash: Optional[str] = field(init=False)
+	local: Optional[Path] = field(init=False, default=None)
+	len: Optional[int] = field(init=False, default=None)
+	hash: Optional[str] = field(init=False, default=None)
 
 
 
@@ -76,6 +79,33 @@ class ProviderBase(UserList):
 
 	def download_info(self, save_raw=True):
 		raise NotImplementedError
+
+	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
+		log(f"{self.__class__.__name__}: Downloading images")
+		for img in self.data:
+			f_path = self.IMG_DIR / img.f_name
+			log(f'{self.__class__.__name__}:',
+				f'Downloading img [{self.date_to_str(img.date)}] "{img.url}"')
+
+			if not overwrite:
+				if img.local:
+					log(f'\t\tSKIPPED (saved path) {f_path}')
+					continue
+				elif f_path.is_file():
+					log(f'\t\tSKIPPED (exists on FS) {f_path}')
+					img.local = f_path.relative_to(CACHE_DIR)
+					continue
+
+			res = requests.get(img.url)
+			assert res.status_code == 200
+			log(f'\t\t{len(res.content)}bytes -> {f_path}')
+			f_path.write_bytes(res.content)
+			img.local = f_path.relative_to(CACHE_DIR)
+			self.set_file_date(f_path, self.to_datetime(img.date))
+		
+		if auto_dump:
+			self.dump()
+
 
 	@staticmethod
 	def set_file_date(f: Path, d: datetime):
