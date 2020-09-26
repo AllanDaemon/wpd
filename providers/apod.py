@@ -89,6 +89,9 @@ class ApodProvider(ProviderBase):
 	ARCHIVE_F_NAME = "archivepix.html"
 	FULL_ARCHIVE_F_NAME = "archivepixFull.html"
 
+	DATE_FMT = "%y%m%d"
+	DATETIME_FMT = "%y%m%d_%H%M%S"
+
 	pages: list[str] = []
 	page_status: dict[str, ApodStatus] = {}
 	groups: dict[str, list[str]] = {}
@@ -195,7 +198,7 @@ class ApodProvider(ProviderBase):
 		explanation = None
 
 		return ApodStatus.OK, {
-			'href': image_href,
+			'url': image_href,
 			'title': title,
 			'credit': credit,
 			'about': explanation,
@@ -224,74 +227,33 @@ class ApodProvider(ProviderBase):
 			return ApodStatus.APPLET
 		return False
 
-
 	def process_image_info(self, info: dict, page_name: str) -> ApodImage:
 		return ApodImage(
 			date = self.page_name2date(page_name),
 			page_name = page_name,
 			url_path = info['url'],
 			url = self.URL_BASE + info['url'],
-			f_name= Path(info['url']).name
+			f_name= Path(info['url']).name,
 			# title = info['title'],
 			# about = info['about'],
 			# credit = info['credit'],
 		)
 
-	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
-		log(f"{self.__class__.__name__}: Downloading images")
-		for img in self.data:
-			f_path = self.IMG_DIR / img.f_name
-			log(f'{self.__class__.__name__}:\tDownloading img: "{img.url}"')
-
-			if not overwrite:
-				if img.local:
-					log(f'\t\tSKIPPED (saved path) {f_path}')
-					continue
-				elif f_path.is_file():
-					log(f'\t\tSKIPPED (exists on FS) {f_path}')
-					img.local = f_path.relative_to(CACHE_DIR)
-					continue
-
-			res = requests.get(img.url)
-			assert res.status_code == 200
-			log(f'\t\t{len(res.content)}bytes -> {f_path}')
-			f_path.write_bytes(res.content)
-			img.local = f_path.relative_to(CACHE_DIR)
-			self.set_file_date(f_path, img.date)
-		
-		if auto_dump:
-			self.dump()
-
 	def process_pages(self):
-		urls = {}
+		infos = {}
 		print()
 		for page_name in self.groups[ApodStatus.OK.name]:
-			# print(f'Processing {page_name}', end='\t')
+			print(f'Processing {page_name}', end='\t')
 			page = self.get_page(page_name)
 			status, info_d = self.parse_day_page(page, None, page_name)
-			# print(status.name)
+			print(status.name)
 			assert status == ApodStatus.OK
-			urls[page_name] = info_d['href']
-			# info = self.process_image_info(info_d, page_name)
-		# print()
-
-		# input()
-		# print()
-		for page, url in urls.items():
-			url = url.lower()
-			if (not url.startswith('image/') or
-				(
-					not url.endswith('.jpg') and
-					not url.endswith('.jpeg') and
-					not url.endswith('.png')
-				)
-			):
-				print(f"{page}\t{url}")
+			info = self.process_image_info(info_d, page_name)
+			infos[page_name] = info
 		print()
-		return urls
 
-
-
+		self.data = list(infos.values())
+		return infos
 
 	def classify_pages(self, pages: list[str] = None):
 		if not pages:
@@ -318,7 +280,7 @@ class ApodProvider(ProviderBase):
 		return self.page_status, self.groups
 
 	def dump(self):
-		# super().dump()
+		super().dump()
 		log(f"{self.__class__.__name__}: Dumping status (file={self.STATUS_FILE})")
 		yaml.dump(self.page_status, self.STATUS_FILE.open('w'))
 		status_desc = {k:v.name for k, v in self.page_status.items()}
@@ -327,7 +289,7 @@ class ApodProvider(ProviderBase):
 		yaml.dump(self.groups, self.GROUPS_FILE.open('w'))
 
 	def load(self):
-		# super().load()
+		super().load()
 		self.load_pages()
 
 		log(f"{self.__class__.__name__}: Loading status (file={self.STATUS_FILE})")
