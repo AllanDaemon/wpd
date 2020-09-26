@@ -3,3 +3,6 @@ lxml
 cssselect
 peewee
 singleton-decorator
+
+# sudo dnf install python3-devel redhat-rpm-config libtiff-devel libjpeg-devel openjpeg2-devel zlib-devel freetype-devel lcms2-devel libwebp-devel tcl-devel tk-devel harfbuzz-devel fribidi-devel libraqm-devel libimagequant-devel libxcb-devel
+Pillow
