@@ -6,6 +6,7 @@ from datetime import datetime, date as Date
 from typing import Optional, Union
 from pathlib import Path
 from urllib.parse import parse_qsl
+import yaml
 
 import requests
 import lxml.html
@@ -135,7 +136,7 @@ class ApodProvider(ProviderBase):
 
 		f_name = self.date2page_name(date)
 		page = self.get_page(f_name, cache)
-		return self.parse_day_page(page, date, f_name)
+		return self.parse_day_page(page, date, f_name)[1]
 	
 	def get_archive_info(self, full_archive=False, cache=True):
 		log(f"{self.__class__.__name__}: Getting archive info ({full_archive=})")
@@ -155,11 +156,12 @@ class ApodProvider(ProviderBase):
 		return pages
 
 	### TODO: FINISH
-	def parse_day_page(self, page: str, date: Date, f_name:str):
+	def parse_day_page(self, page: str, _, f_name:str
+		) -> tuple[ApodStatus, Optional[tuple]]:
 		dom = get_dom(page)
 
 		if n_img := self._should_skip_page(dom):
-			return n_img
+			return n_img, None
 
 		image_href = dom.css_one('body > center:first-child > p:last-child > a').attrib['href']
 
@@ -180,8 +182,7 @@ class ApodProvider(ProviderBase):
 		# explanation = explanation.removeprefix(expl_header).strip()
 		explanation = None
 
-		return PageStatus.OK
-		return image_href, title, credit, explanation
+		return PageStatus.OK, (image_href, title, credit, explanation)
 
 	@staticmethod
 	def _should_skip_page(dom: HtmlElement) -> Union[bool, PageStatus]:
@@ -247,16 +248,26 @@ class ApodProvider(ProviderBase):
 		if auto_dump:
 			self.dump()
 
+	def process_pages(self):
+		for page_name in self.groups[ApodStatus.OK.name]:
+			page = self.get_page(page_name)
+			status, info = self.parse_day_page(page, None, page_name)
 
-	def classify_pages(self, pages: list[str]):
+
+
+
+
+	def classify_pages(self, pages: list[str] = None):
+		if not pages:
+			pages = self.pages
+
 		self.page_status = {}
-
 		print()
 		for page_name in pages:
 			print(f'Classifying {page_name}\t', end='\r')
 			page = self.get_page(page_name)
 			try:
-				page_status = self.parse_day_page(page, None, page_name)
+				page_status, _ = self.parse_day_page(page, None, page_name)
 			except:
 				page_status = ApodStatus.ERROR
 			self.page_status[page_name] = page_status
@@ -286,6 +297,8 @@ class ApodProvider(ProviderBase):
 		log(f"{self.__class__.__name__}: Loading groups (file={self.GROUPS_FILE})")
 		self.groups = yaml.unsafe_load(self.GROUPS_FILE.open())
 
+		self.pages = self.get_pages_list(cache=True, full=True)
+
 
 	@classmethod
 	def db_status_fill(cls):
@@ -306,7 +319,7 @@ class ApodProvider(ProviderBase):
 
 
 p = ApodProvider()
-# p.load()
+p.load()
 
 
 import yaml
@@ -327,7 +340,7 @@ pages.reverse()
 # 	t = pp.read_text(errors='replace')
 # 	# try:
 # 	if True:
-# 		r = p.parse_day_page(t, None, page)
+# 		r, _ = p.parse_day_page(t, None, page)
 # 		STATUS[page] = PageStatus.ERROR
 
 
