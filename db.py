@@ -20,4 +20,3 @@ class ApodStatus(BaseModel):
 	status_int = IntegerField(choices=[0, 1, 2, 3, 10, 11, 12, 13, 100])
 
 assert db.connect()
-

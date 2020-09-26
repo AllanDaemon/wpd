@@ -343,4 +343,4 @@ class ApodProvider(ProviderBase):
 
 p = ApodProvider()
 p.load_pages()
-# p.load()
+p.load()

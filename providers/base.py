@@ -52,6 +52,8 @@ class ImageBase:
 	hash: Optional[str] = field(init=False, default=None)
 	format: Optional[str] = field(init=False, default=None)
 	resolution: Optional[tuple[int, int]] = field(init=False, default=None)
+	# w x h
+
 
 	@property
 	def file(self) -> Optional[Path]:
