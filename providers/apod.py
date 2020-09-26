@@ -78,21 +78,12 @@ class ApodImage(ImageBase):
 class ApodProvider(ProviderBase):
 	SHORT_NAME = 'apod'
 
-	# For pylint sakes
-	# DATA_DIR: ClassVar[Path]
-	# IMG_DIR: ClassVar[Path]
-	# DATA_FILE: ClassVar[Path]
-	# data: ClassVar[list[ImageBase]]
-
-	@property
-	def PAGE_DIR(self) -> Path:
-		return self.DATA_DIR / 'pages'
-	# PAGE_DIR: Path = DATA_DIR / 'pages'
-
-	# ARCHIVE_URL = "https://apod.nasa.gov/apod/archivepix.html"
-	# FULL_ARCHIVE_URL = "https://apod.nasa.gov/apod/archivepixFull.html"
-	# DATE_URL_BASE = "https://apod.nasa.gov/apod/ap%y%m%d.html"
-	# DATE_FNAME_BASE = 'ap%y%m%d.html'
+	DATA_DIR = CACHE_DIR / SHORT_NAME
+	IMG_DIR = DATA_DIR / 'imgs'
+	PAGE_DIR = DATA_DIR / 'pages'
+	DATA_FILE = DATA_DIR / f'{SHORT_NAME}.yaml'
+	STATUS_FILE = DATA_DIR / 'STATUS.yaml'
+	GROUPS_FILE = DATA_DIR / 'STATUS_GROUPS.yaml'
 
 	URL_BASE = "https://apod.nasa.gov/apod/"
 	DATE_F_NAME_BASE = 'ap%y%m%d.html'
@@ -257,53 +248,72 @@ class ApodProvider(ProviderBase):
 			self.dump()
 
 
-	def classify_pages(self, pages: list[str]) -> dict[str, PageStatus]:
-		status = {}
+	def classify_pages(self, pages: list[str]):
+		self.page_status = {}
 
 		print()
-		for page in pages:
-			page_path: Path = self.PAGE_DIR / page
-
+		for page_name in pages:
+			print(f'Classifying {page_name}\t', end='\r')
+			page = self.get_page(page_name)
+			try:
+				page_status = self.parse_day_page(page, None, page_name)
+			except:
+				page_status = ApodStatus.ERROR
+			self.page_status[page_name] = page_status
+			print(page_status.name, end='\r')
 		print()
-		return status
+
+		from collections import defaultdict
+		self.groups = defaultdict(list)
+		for page_name, page_status in self.page_status.items():
+			self.groups[page_status.name].append(page_name)
+
+		return self.page_status, self.groups
+
+	def dump(self):
+		# super().dump()
+		log(f"{self.__class__.__name__}: Dumping status (file={self.STATUS_FILE})")
+		yaml.dump(self.page_status, self.STATUS_FILE.open('w'))
+		status_desc = {k:v.name for k, v in self.page_status.items()}
+		yaml.dump(status_desc, self.STATUS_FILE.with_stem('STATUS_DESC').open('w'))
+		log(f"{self.__class__.__name__}: Dumping groups (file={self.GROUPS_FILE})")
+		yaml.dump(self.groups, self.GROUPS_FILE.open('w'))
+
+	def load(self):
+		# super().load()
+		log(f"{self.__class__.__name__}: Loading status (file={self.STATUS_FILE})")
+		self.page_status = yaml.unsafe_load(self.STATUS_FILE.open())
+		log(f"{self.__class__.__name__}: Loading groups (file={self.GROUPS_FILE})")
+		self.groups = yaml.unsafe_load(self.GROUPS_FILE.open())
+
+
+	@classmethod
+	def db_status_fill(cls):
+		from db import db, ApodStatus
+
+		db.drop_tables([ApodStatus])
+		db.create_tables([ApodStatus])
+
+		from datetime import datetime
+		with db.atomic():
+			print()
+			for page_name, status in reversed(STATUS.items()):
+				print(f'***Inserting into db page {page_name}', end='\r')
+				d = cls.page_name2date(page_name)
+				ApodStatus.create(date=d, f_name=page_name, status=status.name, status_int=status.value)
+			print('Done')
+		db.commit()
 
 
 p = ApodProvider()
 # p.load()
-
-# for page in pages[:0]:
-# 	pp = ApodProvider.PAGE_DIR / page
-# 	t = pp.read_text(errors='replace')
-# 	# try:
-# 	if True:
-# 		r = ApodProvider.parse_day_page(t, None, page)
-# 		STATUS[page] = PageStatus.ERROR
-
-
-def db_status_fill():
-	from db import db, ApodStatus
-
-	db.drop_tables([ApodStatus])
-	db.create_tables([ApodStatus])
-
-	from datetime import datetime
-	with db.atomic():
-		print()
-		for page_name, status in reversed(STATUS.items()):
-			print(f'***Inserting into db page {page_name}', end='\r')
-			d = ApodProvider.page_name2date(page_name)
-			ApodStatus.create(date=d, f_name=page_name, status=status.name, status_int=status.value)
-		print('Done')
-	db.commit()
-
-
 
 
 import yaml
 pages = yaml.unsafe_load(open('cache/apod/pages_list.yaml'))
 pages.reverse()
 
-_STATUS_FILE = p.DATA_DIR / 'STATUS.yaml'
+# _STATUS_FILE = p.DATA_DIR / 'STATUS.yaml'
 _GROUPS_FILE = p.DATA_DIR / 'GROUPS.yaml'
 # sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
 # GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
