@@ -47,7 +47,7 @@ class ApodStatus(Enum):
 
 	# General errors when handling the page
 	ERROR = 'ERROR'	# General error while processing
-	ERROR_DOWNLOADING = 'ERROR_DOWNLOADING'
+	ERROR_RETRIEVING = 'ERROR_RETRIEVING'
 
 	# Skips: skip it because it is not a image or it doesn't fits our pourposes
 	SKIP = 'SKIP'	# Just skip it, whatever the reason
@@ -245,47 +245,48 @@ class ApodProvider(ProviderBase):
 			# credit = info['credit'],
 		)
 
-	def process_pages(self):
-		self.data = []
-		infos = {}
+	def process_pages(self, pages:list[str]=None, reset=True, save=True):
+		if reset:
+			self.data = []
+			self.data_dict = {}
+			self.page_status = {}
+			self.groups = {name:[] for name in ApodStatus.__members__}
+
+		if not pages:
+			pages = self.pages
+
 		print()
-		for page_name in self.groups[ApodStatus.OK.name]:
+		for page_name in pages:
 			print(f'Processing {page_name}', end='\t')
-			page = self.get_page(page_name)
-			status, info_d = self.parse_day_page(page, page_name)
-			print(status.name)
-			assert status == ApodStatus.OK
+			try:
+				page = self.get_page(page_name)
+			except:
+				self.page_status[page_name] = ApodStatus.ERROR_RETRIEVING
+				self.groups[ApodStatus.ERROR_RETRIEVING.name].append(page_name)
+
+			try:
+				status, info_d = self.parse_day_page(page, page_name)	# type: ignore
+				print(status.name)
+				self.page_status[page_name] = status
+				self.groups[status.name].append(page_name)
+			except:
+				print('ERROR')
+				self.page_status[page_name] = ApodStatus.ERROR
+				self.groups[ApodStatus.ERROR.name].append(page_name)
+				continue
+
+			if not save: continue
+			if status != ApodStatus.OK: continue
+
 			img = self.process_image_info(info_d, page_name)
-			infos[page_name] = img
+			self.data_dict[page_name] = img
 			self.data.append(img)
 			self._url_paths[img.url_path] = img
 		print()
 
-		return infos
-
 	def classify_pages(self, pages: list[str] = None):
-		if not pages:
-			pages = self.pages
+		self.process_pages(pages, save=False)
 
-		self.page_status = {}
-		print()
-		for page_name in pages:
-			print(f'Classifying {page_name}\t', end='\r')
-			page = self.get_page(page_name)
-			try:
-				page_status, _ = self.parse_day_page(page, page_name)
-			except:
-				page_status = ApodStatus.ERROR
-			self.page_status[page_name] = page_status
-			print(page_status.name, end='\r')
-		print()
-
-		from collections import defaultdict
-		self.groups = defaultdict(list)
-		for page_name, page_status in self.page_status.items():
-			self.groups[page_status.name].append(page_name)
-
-		return self.page_status, self.groups
 
 	def dump(self):
 		super().dump()
@@ -341,5 +342,5 @@ class ApodProvider(ProviderBase):
 
 
 p = ApodProvider()
-# p.load()
 p.load_pages()
+# p.load()
