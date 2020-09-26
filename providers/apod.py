@@ -62,9 +62,6 @@ class ApodStatus(Enum):
 	APPLET = 'APPLET'
 
 
-PageStatus = ApodStatus
-
-
 @dataclass
 class ApodImage(ImageBase):
 	# date: str
@@ -91,6 +88,10 @@ class ApodProvider(ProviderBase):
 	ARCHIVE_F_NAME = "archivepix.html"
 	FULL_ARCHIVE_F_NAME = "archivepixFull.html"
 
+	pages: list[str] = []
+	page_status: dict[str, ApodStatus] = {}
+	groups: dict[str, list[str]] = {}
+
 
 	@classmethod
 	def date2page_name(cls, date: Date) -> str:
@@ -111,7 +112,7 @@ class ApodProvider(ProviderBase):
 		return res
 
 	def get_page(self, f_name: str, cache=True) -> str:
-		log(f"{self.__class__.__name__}: Getting page ({f_name=})")
+		# log(f"{self.__class__.__name__}: Getting page ({f_name=})")
 
 		if not cache:
 			return self.download_page(f_name).text
@@ -182,29 +183,29 @@ class ApodProvider(ProviderBase):
 		# explanation = explanation.removeprefix(expl_header).strip()
 		explanation = None
 
-		return PageStatus.OK, (image_href, title, credit, explanation)
+		return ApodStatus.OK, (image_href, title, credit, explanation)
 
 	@staticmethod
-	def _should_skip_page(dom: HtmlElement) -> Union[bool, PageStatus]:
+	def _should_skip_page(dom: HtmlElement) -> Union[bool, ApodStatus]:
 		# Old page format, we don't proccess them because the
 		# images are too small for being used as wallpaper.
 		if not dom.cssselect('body > center'):
-			return PageStatus.OLD
+			return ApodStatus.OLD
 
 		# Pages with horizontal layout means image in portrait
 		# mode, so we don't want them.
 		if dom.xpath('/html/body/table'):
-			return PageStatus.HORIZONTAL
+			return ApodStatus.HORIZONTAL
 
 		link_node: HtmlElement = dom.css_one('body > center:first-child > p:last-child')
 		if link_node.cssselect('iframe'):
-			return PageStatus.IFRAME
+			return ApodStatus.IFRAME
 		if link_node.cssselect('object'):
-			return PageStatus.OBJECT
+			return ApodStatus.OBJECT
 		if link_node.cssselect('embed'):
-			return PageStatus.EMBED
+			return ApodStatus.EMBED
 		if link_node.cssselect('applet'):
-			return PageStatus.APPLET
+			return ApodStatus.APPLET
 		return False
 
 
@@ -249,10 +250,14 @@ class ApodProvider(ProviderBase):
 			self.dump()
 
 	def process_pages(self):
+		print()
 		for page_name in self.groups[ApodStatus.OK.name]:
+			print(f'Processing {page_name}', end='\t')
 			page = self.get_page(page_name)
 			status, info = self.parse_day_page(page, None, page_name)
-
+			print(status.name)
+			assert status == ApodStatus.OK
+		print()
 
 
 
@@ -292,12 +297,15 @@ class ApodProvider(ProviderBase):
 
 	def load(self):
 		# super().load()
+		self.load_pages()
+
 		log(f"{self.__class__.__name__}: Loading status (file={self.STATUS_FILE})")
 		self.page_status = yaml.unsafe_load(self.STATUS_FILE.open())
 		log(f"{self.__class__.__name__}: Loading groups (file={self.GROUPS_FILE})")
 		self.groups = yaml.unsafe_load(self.GROUPS_FILE.open())
 
-		self.pages = self.get_pages_list(cache=True, full=True)
+	def load_pages(self, cache=True, full=True):
+		self.pages = self.get_pages_list(cache=cache, full=full)
 
 
 	@classmethod
@@ -319,38 +327,4 @@ class ApodProvider(ProviderBase):
 
 
 p = ApodProvider()
-p.load()
-
-
-import yaml
-pages = yaml.unsafe_load(open('cache/apod/pages_list.yaml'))
-pages.reverse()
-
-# _STATUS_FILE = p.DATA_DIR / 'STATUS.yaml'
-_GROUPS_FILE = p.DATA_DIR / 'GROUPS.yaml'
-# sSTATUS = yaml.unsafe_load(_STATUS_FILE.open())
-# GROUPS = yaml.unsafe_load(_GROUPS_FILE.open())
-
-STATUS = {}
-pages.reverse()
-
-# for page in pages[:0]:
-# 	print(f'processing {page}', end='\t')
-# 	pp = p.PAGE_DIR / page
-# 	t = pp.read_text(errors='replace')
-# 	# try:
-# 	if True:
-# 		r, _ = p.parse_day_page(t, None, page)
-# 		STATUS[page] = PageStatus.ERROR
-
-
-
-# _group = PageStatus.ERROR.name
-# for page in GROUPS[_group]:
-# 	print(f'processing {_group=} {page=}', end='\t')
-# 	pp = ApodProvider.PAGE_DIR / page
-# 	t = pp.read_text(errors='replace')
-# 	dom = get_dom(t)
-# 	is_old_format = not dom.cssselect('body > center')
-# 	print('OLD' if is_old_format else 'NORMAL')
-# 	# assert is_old_format
+# p.load()
