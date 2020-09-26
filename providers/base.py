@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections import UserList
-from typing import Optional
-from datetime import datetime
+from typing import Optional, Union
+from datetime import datetime, date as Date
 from enum import Enum
 import os
 import yaml
@@ -29,7 +29,7 @@ class StatusEnum(Enum):
 
 @dataclass
 class ImageBase:
-	date: str
+	date: Union[str, Date]
 	url: str
 	f_name: str
 
