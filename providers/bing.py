@@ -25,8 +25,12 @@ class BingImage(ImageBase):
 	extension: str
 	id_str: str
 	id_num: int
-	resolution: tuple[int, int]
+	_resolution: tuple[int, int]
 	_hash: str
+
+	@property
+	def _match_res(self):
+		return self.resolution == self._resolution
 
 
 ##### PROVIDER CLASS #####
@@ -125,4 +129,4 @@ def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
 
 
 p = BingProvider()
-# p.load()
+p.load()
