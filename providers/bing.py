@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
-from typing import ClassVar
 from pathlib import Path
 import re
 
@@ -35,11 +34,11 @@ class BingImage(ImageBase):
 class BingProvider(ProviderBase):
 	SHORT_NAME = 'bing'
 
-	# For pylint sakes
-	DATA_DIR: ClassVar[Path]
-	IMG_DIR: ClassVar[Path]
-	DATA_FILE: ClassVar[Path]
-	data: ClassVar[list[ImageBase]]
+	DATA_DIR = CACHE_DIR / SHORT_NAME
+	IMG_DIR = DATA_DIR / 'imgs'
+	DATA_FILE = DATA_DIR / f'{SHORT_NAME}.yaml'
+
+	data: list[BingImage]
 
 	BASE_URL = "http://www.bing.com/HPImageArchive.aspx"
 	BASE_IMG_URL = "http://bing.com"
@@ -51,24 +50,22 @@ class BingProvider(ProviderBase):
 	}
 
 
-	@classmethod
-	def download_info(cls, save_raw=True):
-		log(f"{cls.__name__}: Downloading info")
-		params = cls.BASE_PARAMS
-		res = requests.get(cls.BASE_URL, params=params)
+	def download_info(self, save_raw=True):
+		log(f"{type(self).__name__}: Downloading info")
+		params = self.BASE_PARAMS
+		res = requests.get(self.BASE_URL, params=params)
 		assert res.status_code == 200
 		if save_raw:
 			now = datetime.now().strftime("%Y%m%d_%H%M%S")
-			f_path = cls.DATA_DIR / 'raw' / f'bing_{now}.json'
-			log(f"{cls.__name__}: \tSaving info (file={f_path})")
+			f_path = self.DATA_DIR / 'raw' / f'bing_{now}.json'
+			log(f"{type(self).__name__}: \tSaving info (file={f_path})")
 			f_path.write_bytes(res.content)
 
 		imgs_raw = res.json()['images']
-		imgs = list(map(cls.process_image_info, imgs_raw))
+		imgs = list(map(self.process_image_info, imgs_raw))
 		return imgs
 
-	@classmethod
-	def process_image_info(cls, info: dict) -> BingImage:
+	def process_image_info(self, info: dict) -> BingImage:
 		f_name, id_str, id_num, ext, res = url_extract_info(info['url'])
 		return BingImage(
 			date = info['startdate'],
@@ -76,7 +73,7 @@ class BingProvider(ProviderBase):
 			about = info['copyright'],
 			_hash = info['hsh'],
 			url_path = info['url'],
-			url = cls.BASE_IMG_URL + info['url'],
+			url = self.BASE_IMG_URL + info['url'],
 			f_name = f_name,
 			extension = ext,
 			id_str = id_str,
@@ -84,12 +81,12 @@ class BingProvider(ProviderBase):
 			resolution = res,
 		)
 
-	@classmethod
-	def download_images(cls, overwrite: bool = False, auto_dump: bool = True):
-		log(f"{cls.__name__}: Downloading images")
-		for img in cls.data:
-			f_path = cls.IMG_DIR / img.f_name
-			log(f'{cls.__name__}:\tDownloading img: "{img.url}"')
+	# TODO: REMOVE
+	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
+		log(f"{type(self).__name__}: Downloading images")
+		for img in self.data:
+			f_path = self.IMG_DIR / img.f_name
+			log(f'{type(self).__name__}:\tDownloading img: "{img.url}"')
 
 			if not overwrite:
 				if img.local:
@@ -105,10 +102,10 @@ class BingProvider(ProviderBase):
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
 			img.local = f_path.relative_to(CACHE_DIR)
-			cls.set_file_date(f_path, img.date)
+			self.set_file_date(f_path, self.to_datetime(img.date))
 		
 		if auto_dump:
-			cls.dump()
+			self.dump()
 
 
 
@@ -127,5 +124,5 @@ def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
 
 
 
-p = BingProvider
+p = BingProvider()
 # p.load()
