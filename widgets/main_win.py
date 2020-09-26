@@ -6,9 +6,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-from widgets.main_win import MainWindow
+class MainWindow(Gtk.Window):
 
-if __name__ == "__main__":
-	main_win = MainWindow()
-	main_win.show_all()
-	Gtk.main()
+	def __init__(self):
+		super().__init__()
+		self.connect("destroy", Gtk.main_quit)
