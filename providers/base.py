@@ -7,6 +7,8 @@ from collections import UserList
 from typing import Optional, Union
 from datetime import datetime, date
 from enum import Enum
+from hashlib import sha256
+from PIL import Image
 import os
 import re
 import yaml
@@ -42,8 +44,15 @@ class ImageBase:
 
 	# local FS data
 	local: Optional[Path] = field(init=False, default=None)
-	len: Optional[int] = field(init=False, default=None)
+	size: Optional[int] = field(init=False, default=None)
 	hash: Optional[str] = field(init=False, default=None)
+	format: Optional[str] = field(init=False, default=None)
+	resolution: Optional[tuple[int, int]] = field(init=False, default=None)
+
+	@property
+	def file(self) -> Optional[Path]:
+		if not self.local: return None
+		return CACHE_DIR / self.local
 
 
 
@@ -82,6 +91,23 @@ class ProviderBase(UserList):
 	def download_info(self, save_raw=True):
 		raise NotImplementedError
 
+
+
+	@staticmethod
+	def set_file_date(f: Path, d: datetime):
+		a_time = f.stat().st_mtime
+		m_time = d.timestamp()
+		os.utime(f, (a_time, m_time))
+
+	def _download_img_set(self, img, data, f_path):
+		image = Image.open(f_path)
+		img.local = f_path.relative_to(CACHE_DIR)
+		img.size = len(data)
+		img.hash = sha256(data).hexdigest()
+		img.format = image.format
+		img.resolution = image.size
+		self.set_file_date(f_path, self.to_datetime(img.date))
+
 	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
 		log(f"{self.__class__.__name__}: Downloading images")
 		for img in self.data:
@@ -95,25 +121,18 @@ class ProviderBase(UserList):
 					continue
 				elif f_path.is_file():
 					log(f'\t\tSKIPPED (exists on FS) {f_path}')
-					img.local = f_path.relative_to(CACHE_DIR)
+					data = f_path.read_bytes()
+					self._download_img_set(img, data, f_path)
 					continue
 
 			res = requests.get(img.url)
 			assert res.status_code == 200
 			log(f'\t\t{len(res.content)}bytes -> {f_path}')
 			f_path.write_bytes(res.content)
-			img.local = f_path.relative_to(CACHE_DIR)
-			self.set_file_date(f_path, self.to_datetime(img.date))
-		
+			self._download_img_set(img, res.content, f_path)
+
 		if auto_dump:
 			self.dump()
-
-
-	@staticmethod
-	def set_file_date(f: Path, d: datetime):
-		a_time = f.stat().st_mtime
-		m_time = d.timestamp()
-		os.utime(f, (a_time, m_time))
 
 
 	_iso_format_pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
