@@ -74,7 +74,9 @@ class ProviderBase(UserList):
 		self.data = yaml.unsafe_load(self.DATA_FILE.open())
 
 	def download(self):
-		self.data = self.download_info()
+		if not self.data:
+			self.data = []
+		self.data += self.download_info()
 		self.dump()
 
 	def download_info(self, save_raw=True):
@@ -147,7 +149,11 @@ class ProviderBase(UserList):
 		elif isinstance(d, str):
 			if cls.is_iso_format(d):
 				return datetime.fromisoformat(d)
-			return datetime.strptime(d, cls.DATETIME_FMT)
+			try:
+				return datetime.strptime(d, cls.DATETIME_FMT)
+			except ValueError:
+				d = cls.to_date(d)
+				return cls.to_datetime(d)
 		else:
 			raise TypeError
 
