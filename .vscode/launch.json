@@ -4,6 +4,7 @@
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
+
 		{
 			"name": "Python: Current File",
 			"type": "python",
@@ -16,6 +17,14 @@
 			"type": "python",
 			"request": "launch",
 			"module": "providers.apod",
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal"
+		},
+		{
+			"name": "Python: gui",
+			"type": "python",
+			"request": "launch",
+			"module": "gui",
 			"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal"
 		}
