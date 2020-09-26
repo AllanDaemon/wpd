@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, date as Date
 from typing import Optional, Union
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 import requests
 import lxml.html
@@ -102,109 +103,61 @@ class ApodProvider(ProviderBase):
 		return datetime.strptime(page_name, cls.DATE_F_NAME_BASE).date()
 
 
-	def get_page(self, f_name: str, cache=PAGE_DIR) -> str:
-		log(f"{self.__class__.__name__}: Getting page ({f_name=})")
-
-		# f_name = date.strftime(self.DATE_FNAME_BASE)
-
-		if cache and (cache / f_name).is_file():
-			page = (cache / f_name).read_text(errors='replace')
-		else:
-			page = self.download_day_page(date)
-
-		return page
-
-
-	def get_day_info(self, date: Date, cache=PAGE_DIR):
-		log(f"{self.__class__.__name__}: Getting day info ({date=})")
-
-		f_name = self.date2page_name(date)
-		page = self.download_day_page(date, cache)
-		return self.parse_day_page(page, date, f_name)
-
-	
-	def get_archive_info(self, full_archive=False, cache:Optional[Path]=None):
-		log(f"{self.__class__.__name__}: Getting archive info ({full_archive=})")
-
-		f_name = 'archivepix.html' if not full_archive else 'archivepixFull.html'
-
-		if cache and (cache / f_name).is_file():
-			page = (cache / f_name).read_text(errors='replace')
-		else:
-			page = self.download_archive_page(full_archive)
-
-		return self.parse_archive_page(page)
-
-	def get_pages_list(self, cache=None, full:bool=False) -> list[str]:
-		if cache is True:
-			cache = self.DATA_DIR
-		return self.get_archive_info(full, cache)
-
-
-	# TODO: unify all download functions
-
-	def download_day_page(self, date: Date, save_cache=True) -> str:
-		return self.download_page(self.date2page_name(date), save_cache)
-
-	def download_archive_page(self, full_archive=False, save_cache=True) -> str:
-		f_name = self.FULL_ARCHIVE_F_NAME if full_archive else self.ARCHIVE_F_NAME
-		return self.download_page(f_name, save_cache)
-
-	def download_page(self, f_name:str, save_cache=True) -> str:
+	def download_page(self, f_name:str):
 		log(f"{self.__class__.__name__}: Downloading page ({f_name=})")
 	
 		url = self.URL_BASE + f_name
 		res = requests.get(url)
 		assert res.status_code == 200
+		res.bytes = res.content		# type: ignore
+		return res
 
-		if save_cache:
-			if save_cache is True:
-				save_cache = self.PAGE_DIR
-			assert isinstance(save_cache, Path)
-			f_path = save_cache / f_name
-			log(f"{self.__class__.__name__}: \tSaving archive (file={f_path})")
-			f_path.write_bytes(res.content)
-		
-		return res.text
+	def get_page(self, f_name: str, cache=True) -> str:
+		log(f"{self.__class__.__name__}: Getting page ({f_name=})")
 
-	# @classmethod
-	# def download_day_page(cls, date: Date, cache=PAGE_DIR, save_raw=True) -> str:
-	# 	log(f"{self.__class__.__name__}: Downloading day pages ({date=})")
+		if not cache:
+			return self.download_page(f_name).text
+
+		if cache is True:
+			cache = self.PAGE_DIR
+		assert isinstance(cache, Path)
+
+		if (cache / f_name).is_file():
+			return (cache / f_name).read_text(errors='replace')
+
+		# Cache miss
+		page_bytes: bytes = self.download_page(f_name).bytes	# type: ignore
+
+		f_path = cache / f_name
+		log(f"{self.__class__.__name__}: \tSaving archive (file={f_path})")
+		f_path.write_bytes(page_bytes)
+		return page_bytes.decode(errors='replace')
+
+	def get_day_info(self, date: Date, cache=True):
+		log(f"{self.__class__.__name__}: Getting day info ({date=})")
+
+		f_name = self.date2page_name(date)
+		page = self.get_page(f_name, cache)
+		return self.parse_day_page(page, date, f_name)
 	
-	# 	f_name = cls.date2page_name(date)
-	# 	url = cls.URL_BASE + f_name
-	# 	res = requests.get(url)
-	# 	assert res.status_code == 200
+	def get_archive_info(self, full_archive=False, cache=True):
+		log(f"{self.__class__.__name__}: Getting archive info ({full_archive=})")
 
-	# 	if save_raw:
-	# 		f_path = cache / f_name
-	# 		log(f"{self.__class__.__name__}: \tSaving arquive (file={f_path})")
-	# 		f_path.write_bytes(res.content)
-		
-	# 	return res.text
+		f_name = self.FULL_ARCHIVE_F_NAME if full_archive else self.ARCHIVE_F_NAME
+		page = self.get_page(f_name, cache)
+		return self.parse_archive_page(page)
 
-	# @classmethod
-	# def download_archive_page(cls, full_archive=False, save_raw=True) -> str:
-	# 	log(f"{self.__class__.__name__}: Downloading archive info ({full_archive=})")
+	def get_pages_list(self, cache=True, full:bool=False) -> list[str]:
+		return self.get_archive_info(full, cache)
 
-	# 	f_name = cls.FULL_ARCHIVE_F_NAME if full_archive else cls.ARCHIVE_F_NAME
-	# 	url = cls.URL_BASE = f_name
-	# 	res = requests.get(url)
-	# 	assert res.status_code == 200
-
-	# 	if save_raw:
-	# 		f_path = cls.DATA_DIR / f_name
-	# 		log(f"{self.__class__.__name__}: \tSaving arquive (file={f_path})")
-	# 		f_path.write_bytes(res.content)
-		
-	# 	return res.text
-
-	def parse_archive_page(self, page: str) -> list[str]:
+	@staticmethod
+	def parse_archive_page(page: str) -> list[str]:
 		dom = get_dom(page)
 		entries = dom.xpath('/html/body/b/a/@href')
 		pages = list(map(str, entries))
 		return pages
 
+	### TODO: FINISH
 	def parse_day_page(self, page: str, date: Date, f_name:str):
 		dom = get_dom(page)
 
