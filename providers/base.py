@@ -197,6 +197,30 @@ class ProviderBase(UserList):
 		if auto_dump:
 			self.dump()
 
+	def download_images_async(self,
+						images: Optional[list[ImageBase]] = None,
+						overwrite: bool = False,
+						auto_dump: bool = True,
+						n_jobs: int = 8,
+	):
+		log(f"{self.__class__.__name__}: Downloading images async")
+		if not images:
+			images = self.data
+
+		pool = ThreadWorkerPoll(self.download_image, n_jobs)
+
+		for img in images:
+			pool.put(img)
+			# self.download_image(img, overwrite=overwrite, auto_dump=False)
+		try:
+			pool.join()
+		except:
+			pool.stop()
+
+		if auto_dump:
+			self.dump()
+
+
 	_iso_format_pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
 	@classmethod
 	def is_iso_format(cls, d: str):
