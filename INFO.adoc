@@ -26,3 +26,15 @@ http get $URL action==parse text=={{Potd}} contentmodel==wikitext prop==images f
 https://apod.nasa.gov/apod/astropix.html
 https://apod.nasa.gov/apod/archivepix.html
 https://apod.nasa.gov/apod.rss
+
+
+=== Unsplash
+
+collectionID = 1065976
+
+https://source.unsplash.com/collection/%1/3840x2160/daily
+
+https://unsplash.com/s/photos/photo-of-the-day
+
+https://unsplash.com/developers
+
