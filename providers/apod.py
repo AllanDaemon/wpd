@@ -49,17 +49,17 @@ class ApodStatus(Enum):
 	ERROR = 'ERROR'	# General error while processing
 	ERROR_DOWNLOADING = 'ERROR_DOWNLOADING'
 
-	# the layout is vertical, so the image is in portrait mode
-	HORIZONTAL = 'HORIZONTAL'
-	# the layout is old, so the image is probably very small and
-	# it don't matter to us
-	OLD = 'OLD'
-
+	# Skips: skip it because it is not a image or it doesn't fits our pourposes
+	SKIP = 'SKIP'	# Just skip it, whatever the reason
+	HORIZONTAL = 'HORIZONTAL' # layout is vertical, so the image is in portrait mode
+	OLD = 'OLD' # the layout is old, so the image is probably very small
+	GIF = 'GIF' # Low quality or just animations
 	# Pages without static images (videos, applets, interactive stuff, etc)
 	IFRAME = 'IFRAME'
 	OBJECT = 'OBJECT'
 	EMBED = 'EMBED'
 	APPLET = 'APPLET'
+	VIDEO = 'VIDEO'
 
 
 @dataclass
@@ -67,7 +67,8 @@ class ApodImage(ImageBase):
 	# date: str
 	# f_name: str
 	# url: str
-	...
+	url_path: str
+	page_name: str
 
 
 ##### PROVIDER CLASS #####
@@ -157,14 +158,24 @@ class ApodProvider(ProviderBase):
 		return pages
 
 	### TODO: FINISH
-	def parse_day_page(self, page: str, _, f_name:str
-		) -> tuple[ApodStatus, Optional[tuple]]:
+	def parse_day_page(self, page: str, _, f_name:str) -> tuple[ApodStatus, dict]:
 		dom = get_dom(page)
 
 		if n_img := self._should_skip_page(dom):
-			return n_img, None
+			return n_img, {}	# type: ignore
 
-		image_href = dom.css_one('body > center:first-child > p:last-child > a').attrib['href']
+		image_href = dom.css_one('body > center:first-child > p:last-child > a').attrib['href'].strip()
+
+		ext = Path(image_href.lower()).suffix
+		if ext == '.gif':
+			return ApodStatus.GIF, {}	# type: ignore
+		elif ext in ('.mp4', '.mov', '.mpg', '.wmv'):
+			return ApodStatus.VIDEO, {}		# type: ignore
+		elif ext not in ('.jpg', '.jpeg', '.png'):
+			return ApodStatus.SKIP, {}	# type: ignore
+
+		if not image_href.startswith('image/'):
+			return ApodStatus.SKIP, {}	# type: ignore
 
 		# try:
 		# 	title = dom.xp_one('/html/body/center[2]/b[1]/text()').strip()
@@ -183,7 +194,12 @@ class ApodProvider(ProviderBase):
 		# explanation = explanation.removeprefix(expl_header).strip()
 		explanation = None
 
-		return ApodStatus.OK, (image_href, title, credit, explanation)
+		return ApodStatus.OK, {
+			'href': image_href,
+			'title': title,
+			'credit': credit,
+			'about': explanation,
+		}
 
 	@staticmethod
 	def _should_skip_page(dom: HtmlElement) -> Union[bool, ApodStatus]:
@@ -209,19 +225,16 @@ class ApodProvider(ProviderBase):
 		return False
 
 
-	def process_image_info(self, info: dict) -> ApodImage:
+	def process_image_info(self, info: dict, page_name: str) -> ApodImage:
 		return ApodImage(
-			# date = info['startdate'],
+			date = self.page_name2date(page_name),
+			page_name = page_name,
+			url_path = info['url'],
+			url = self.URL_BASE + info['url'],
+			f_name= Path(info['url']).name
 			# title = info['title'],
-			# about = info['copyright'],
-			# _hash = info['hsh'],
-			# url_path = info['url'],
-			# url = self.BASE_IMG_URL + info['url'],
-			# f_name = f_name,
-			# extension = ext,
-			# id_str = id_str,
-			# id_num = id_num,
-			# resolution = res,
+			# about = info['about'],
+			# credit = info['credit'],
 		)
 
 	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
@@ -250,14 +263,32 @@ class ApodProvider(ProviderBase):
 			self.dump()
 
 	def process_pages(self):
+		urls = {}
 		print()
 		for page_name in self.groups[ApodStatus.OK.name]:
-			print(f'Processing {page_name}', end='\t')
+			# print(f'Processing {page_name}', end='\t')
 			page = self.get_page(page_name)
-			status, info = self.parse_day_page(page, None, page_name)
-			print(status.name)
+			status, info_d = self.parse_day_page(page, None, page_name)
+			# print(status.name)
 			assert status == ApodStatus.OK
+			urls[page_name] = info_d['href']
+			# info = self.process_image_info(info_d, page_name)
+		# print()
+
+		# input()
+		# print()
+		for page, url in urls.items():
+			url = url.lower()
+			if (not url.startswith('image/') or
+				(
+					not url.endswith('.jpg') and
+					not url.endswith('.jpeg') and
+					not url.endswith('.png')
+				)
+			):
+				print(f"{page}\t{url}")
 		print()
+		return urls
 
 
 
@@ -327,4 +358,4 @@ class ApodProvider(ProviderBase):
 
 
 p = ApodProvider()
-# p.load()
+p.load()
