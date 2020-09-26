@@ -158,32 +158,44 @@ class ProviderBase(UserList):
 		img.resolution = image.size
 		self.set_file_date(f_path, self.to_datetime(img.date))
 
-	def download_images(self, overwrite: bool = False, auto_dump: bool = True):
-		log(f"{self.__class__.__name__}: Downloading images")
-		for img in self.data:
-			f_path = self.IMG_DIR / img.f_name
-			log(f'{self.__class__.__name__}:',
-				f'Downloading img [{self.date_to_str(img.date)}] "{img.url}"')
+	def download_image(self, img: ImageBase, overwrite: bool = False, auto_dump: bool = False):
+		f_path = self.IMG_DIR / img.f_name
+		log(f'{self.__class__.__name__}:',
+			f'Downloading img [{self.date_to_str(img.date)}] "{img.url}"')
 
-			if not overwrite:
-				if img.local:
-					log(f'\t\tSKIPPED (saved path) {f_path}')
-					continue
-				elif f_path.is_file():
-					log(f'\t\tSKIPPED (exists on FS) {f_path}')
-					data = f_path.read_bytes()
-					self._download_img_set(img, data, f_path)
-					continue
+		if not overwrite:
+			if img.local:
+				log(f'\t\tSKIPPED (saved path) {f_path}')
+				return
+			elif f_path.is_file():
+				log(f'\t\tSKIPPED (exists on FS) {f_path}')
+				data = f_path.read_bytes()
+				self._download_img_set(img, data, f_path)
+				return
 
-			res = requests.get(img.url)
-			assert res.status_code == 200
-			log(f'\t\t{len(res.content)}bytes -> {f_path}')
-			f_path.write_bytes(res.content)
-			self._download_img_set(img, res.content, f_path)
+		res = requests.get(img.url)
+		assert res.status_code == 200
+		log(f'\t\t{len(res.content)}bytes -> {f_path}')
+		f_path.write_bytes(res.content)
+		self._download_img_set(img, res.content, f_path)
 
 		if auto_dump:
 			self.dump()
 
+	def download_images(self,
+						images: Optional[list[ImageBase]] = None,
+						overwrite: bool = False,
+						auto_dump: bool = True,
+	):
+		log(f"{self.__class__.__name__}: Downloading images")
+		if not images:
+			images = self.data
+
+		for img in images:
+			self.download_image(img, overwrite=overwrite, auto_dump=False)
+
+		if auto_dump:
+			self.dump()
 
 	_iso_format_pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
 	@classmethod
