@@ -20,6 +20,13 @@ class MainHeaderBarWidget(Gtk.HeaderBar):
 		self.init_ui()
 
 	def init_ui(self):
-		self.src_ch = SourceChooserWidget()
 		self.pack_start(Gtk.Label.new("Source"))
+		self.src_ch = SourceChooserWidget()
 		self.pack_start(self.src_ch)
+
+		self.settings_btn = Gtk.Button.new_from_icon_name('settings-configure', Gtk.IconSize.BUTTON)
+		self.pack_end(self.settings_btn)
+	
+		self.refresh_btn = Gtk.Button.new_from_icon_name('view-refresh', Gtk.IconSize.BUTTON)
+		self.pack_end(self.refresh_btn)
+
