@@ -6,14 +6,12 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-from widgets.gallery_card import ImageCardWidget
 
 
+class ImageCardWidget(Gtk.Box):
 
-class GalleryWidget(Gtk.FlowBox):
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	def __init__(self):
+		super().__init__()
 	
 		self.init_ui()
 
