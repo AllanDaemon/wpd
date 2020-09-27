@@ -136,12 +136,6 @@ class ProviderBase(UserList):
 		log(f"{self.__class__.__name__}: Loading data (file={self.DATA_FILE})")
 		self.data = yaml.unsafe_load(self.DATA_FILE.open())
 
-	def download(self):
-		if not self.data:
-			self.data = []
-		self.data += self.download_info()
-		self.dump()
-
 	def download_info(self, save_raw=True):
 		raise NotImplementedError
 

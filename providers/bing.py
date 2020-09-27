@@ -53,6 +53,11 @@ class BingProvider(ProviderBase):
 		'mkt': 'en-US'
 	}
 
+	def download(self):
+		if not self.data:
+			self.data = []
+		self.data += self.download_info()
+		self.dump()
 
 	def download_info(self, save_raw=True):
 		log(f"{type(self).__name__}: Downloading info")
