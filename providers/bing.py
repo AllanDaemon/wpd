@@ -53,15 +53,16 @@ class BingProvider(ProviderBase):
 		'mkt': 'en-US'
 	}
 
-	def download(self):
+	def download(self, idx=0):
 		if not self.data:
 			self.data = []
-		self.data += self.download_info()
+		self.data += self.download_info(idx)
 		self.dump()
 
-	def download_info(self, save_raw=True):
+	def download_info(self, idx=0, save_raw=True):
 		log(f"{type(self).__name__}: Downloading info")
 		params = self.BASE_PARAMS
+		params['idx'] = idx
 		res = requests.get(self.BASE_URL, params=params)
 		assert res.status_code == 200
 		if save_raw:
@@ -87,7 +88,7 @@ class BingProvider(ProviderBase):
 			extension = ext,
 			id_str = id_str,
 			id_num = id_num,
-			resolution = res,
+			_resolution = res,
 		)
 
 	# TODO: REMOVE
