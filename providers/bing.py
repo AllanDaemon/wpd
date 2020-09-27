@@ -133,6 +133,6 @@ def url_extract_info(url: str) -> tuple[str, str, int, str, tuple[int, int]]:
 	return _id, id_str, id_n, ext, (r_w, r_h)
 
 
-
-p = BingProvider()
-p.load()
+if __name__ == "__main__":
+	p = BingProvider()
+	p.load()
