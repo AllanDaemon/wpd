@@ -36,6 +36,7 @@
 			"--disable=unsubscriptable-object",
 		],
 		"cSpell.words": [
+			"Pixbuf",
 			"apod"
 		],
 
